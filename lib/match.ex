@@ -4,7 +4,7 @@ defmodule Match do
   import Capture
 
   # Error handling: backtrack if possible, error out otherwise
-  defp backtrack(state) do
+  def backtrack(state) do
     # Logger.debug("<<<")
     case state.back_stack do
       [frame | back_stack] ->

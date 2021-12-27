@@ -42,5 +42,6 @@ defmodule Patt do
   def mk_minus(p1, p2) do
     List.flatten([mk_not(p2), p1])
   end
+
 end
 

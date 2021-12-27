@@ -6,7 +6,9 @@ defmodule Parsepatt do
   # Transform AST tuples into PEG IR
   def parse({id, _meta, args}) do
     #IO.inspect {"parse", id, args}
+
     case {id, args} do
+
       # List of named rules
       {:__block__, ps} ->
         Enum.reduce(ps, %{}, fn rule, acc ->
@@ -72,11 +74,25 @@ defmodule Parsepatt do
       [{:set, Range.new(lo, hi) |> Enum.into([]) |> List.flatten() |> MapSet.new() }]
 
       {:"::", [p, code] } ->
-        func = fn x -> IO.puts x end
-        List.flatten([{:capopen}, parse(p), {:capclose, func.(1)}])
+        List.flatten([{:capopen}, parse(p), {:capclose, code}])
 
       e -> raise("Syntax error at #{inspect e}")
+
     end
+
+  end
+  
+  # Transform AST character set to PEG IR. `{'x','y','A'..'F','0'}`
+  def parse_set(ps) do
+    s = Enum.reduce(ps, MapSet.new(), fn p, s ->
+      case p do
+        [v] -> MapSet.put(s, v)
+        v ->
+          [{:set, s2}] = parse(v)
+          MapSet.union(s, s2)
+      end
+    end)
+    s
   end
 
   # Handler for funny AST in `{}` charsets
@@ -102,19 +118,6 @@ defmodule Parsepatt do
       [v] -> [{:chr, v}]
       v -> raise("Unhandled lit: #{inspect(v)}")
     end
-  end
-
-  # Transform AST character set to PEG IR. `{'x','y','A'..'F','0'}`
-  def parse_set(ps) do
-    s = Enum.reduce(ps, MapSet.new(), fn p, s ->
-      case p do
-        [v] -> MapSet.put(s, v)
-        v ->
-          [{:set, s2}] = parse(v)
-          MapSet.union(s, s2)
-      end
-    end)
-    s
   end
 
 end
