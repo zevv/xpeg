@@ -5,23 +5,23 @@ defmodule Xpeg do
 
   import Parsepatt
   
-  def collect(stack, acc, caps) do
+  def collect_captures(stack, acc, caps) do
     case {stack, acc} do
       {[ {:open, s} | stack], _} ->
-        collect(stack, [ {:open, s} | acc], caps)
+        collect_captures(stack, [ {:open, s} | acc], caps)
       {[ {:close, sc} | stack], [{:open, so} | acc]} ->
         len = Enum.count(so) - Enum.count(sc)
         cap = to_string(Enum.take(so, len))
-        collect(stack, acc, [cap | caps])
+        collect_captures(stack, acc, [cap | caps])
       {_, acc} ->
         {acc, caps}
     end
   end
 
-  def collect(state) do
+  def collect_captures(state) do
     {cap_stack, captures} = state.cap_stack
                             |> Enum.reverse
-                            |> collect([], [])
+                            |> collect_captures([], [])
     %{state |
       cap_stack: cap_stack,
       captures: captures ++ state.captures 
@@ -112,7 +112,7 @@ defmodule Xpeg do
       end
 
       {:code, code} -> quote do
-        state = collect(state)
+        state = collect_captures(state)
         func = unquote code
         captures = func.(state.captures)
         state = %{state | captures: captures}
@@ -148,19 +148,15 @@ defmodule Xpeg do
         {state, s, ip} = case ip do
           unquote(cases)
         end
-        state = %{state | steps: state.steps-1}
-        case {state.state, state.steps} do
-          {_, 0} ->
-            IO.puts("too deep")
-            state
-          {:ok, _} ->
+        case state.state do
+          :ok ->
             IO.puts("ok")
             state
-          {:error, _} ->
+          :error ->
             IO.puts("error")
             state
-          {:running, _} -> 
-            state.f.(state, s, ip)
+          :running -> 
+            state.func.(state, s, ip)
         end
       end
     end
@@ -224,58 +220,36 @@ defmodule Xpeg do
   end
 
 
-  def exec(f, s) do
+  def exec(func, s) do
     state = %{
-      f: f,
+      func: func,
       state: :running,
       back_stack: [],
       ret_stack: [],
       cap_stack: [],
       captures: [],
       result: [],
-      steps: 1000000,
       do_trace: false,
     }
 
     state =
-      f.(state, String.to_charlist(s), 0)
-      |> collect()
+      state.func.(state, String.to_charlist(s), 0)
+      |> collect_captures()
   end
-  #
-  #
-  #  def run() do
-  #    p = peg :data do
-  #      :data <- +:line
-  #      :line <- :pair * " -> " * :pair * "\n" * &(
-  #          [p1, p2 | result] = result
-  #          [[p1, p2] | result]
-  #      )
-  #      :pair <- :n * "," * :n * &(
-  #        [v1, v2 | result] = result
-  #        [[x: v1, y: v2] | result]
-  #      )
-  #      :n <- cap(+{'0'..'9'}) * &(
-  #        [String.to_integer(&1) | result]
-  #      )
-  #    end
-  #
-  #    d = "258,707 -> 773,707\n68,788 -> 68,875\n858,142 -> 758,142\n"
-  #    #d = "258,707 -> 773,707\n"
-  #    exec(p, d)
-  #  end
-  #
 
   def run2() do
     p = peg :dict do
       :dict <- :pair * star("," * :pair) * !1
-      :pair <- :word * "=" * :number * fn [a, b | cs] -> [{a, b} | cs] end
+      :pair <- :word * "=" * :number * fn [a, b | cs] ->
+        [{b, a} | cs]
+      end
       :word <- cap(+{'a'..'z'}) 
-      :number <- cap(+{'0'..'9'}) * fn [v| cs] -> [String.to_integer(v) | cs] end
+      :number <- cap(+{'0'..'9'}) * fn [v| cs] -> 
+        [String.to_integer(v) | cs]
+      end
     end
 
     s = exec(p, "grass=4,horse=1,star=2")
-
-    #[{"2", "star"}, {"1", "horse"}, {"4", "grass"}] = s.result
 
   end
 
