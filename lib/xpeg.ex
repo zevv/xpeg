@@ -5,63 +5,39 @@ defmodule Xpeg do
 
   import Parsepatt
   
-
-
   def collect(stack, acc, caps) do
-
-    #IO.puts("stack #{inspect stack}")
-    #IO.puts("acc   #{inspect acc}")
-    #IO.puts("-------")
-
     case {stack, acc} do
-
       {[ {:open, s} | stack], _} ->
         collect(stack, [ {:open, s} | acc], caps)
       {[ {:close, sc} | stack], [{:open, so} | acc]} ->
         len = Enum.count(so) - Enum.count(sc)
-        caps = [Enum.take(so, len) | caps]
-        collect(stack, acc, caps)
+        cap = to_string(Enum.take(so, len))
+        collect(stack, acc, [cap | caps])
       {_, acc} ->
         {acc, caps}
-
     end
-
   end
- 
 
   def collect(cap_stack) do
-
-    {cap_stack, captures} = collect(Enum.reverse(cap_stack), [], [])
-
+    collect(Enum.reverse(cap_stack), [], [])
   end
 
-
-  def cc() do
-    [
-      {:close, ' a4 4a2'},
-      {:open, '22 a4 4a2'},
-      {:open, '22 a4 4a2'},
-      {:open, '12 a4 4a2'},
-    ]
-    |> collect
-
-
+  def trace(state, ip, cmd, s) do
+    if state.do_trace do
+      ip = to_string(ip) |> String.pad_trailing(5, " ")
+      cmd = cmd |> String.pad_trailing(18, " ")
+      s = to_string(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
+      IO.puts("   #{ip} | #{s} | #{cmd} | ")
+    end
   end
-
-
-  def trace(ip, cmd, s) do
-    IO.puts("   #{ip} | #{cmd} | #{s}")
-  end
-
 
   def emit_inst(ip, inst) do
-    #IO.puts("#{ip}: #{inspect inst}")
 
-    body = case inst do
+    case inst do
 
       {:any, _} ->
         quote do
-          trace(unquote(ip), "any", s)
+          trace(state, unquote(ip), "any", s)
           case s do
             [_ | s] -> {state, s, unquote(ip+1)}
             _ -> {state, s, :fail}
@@ -70,7 +46,7 @@ defmodule Xpeg do
 
       {:chr, c} ->
         quote do
-          trace(unquote(ip), "chr #{unquote(c)}", s)
+          trace(state, unquote(ip), "chr #{unquote(c)}", s)
           case s do
             [unquote(c) | s] -> {state, s, unquote(ip+1)}
             _ -> {state, s, :fail}
@@ -79,7 +55,7 @@ defmodule Xpeg do
 
       {:set, cs} ->
         quote do
-          trace(unquote(ip), "set", s)
+          trace(state, unquote(ip), "set", s)
           if s != [] and hd(s) in unquote(MapSet.to_list(cs)) do
             {state, tl(s), unquote(ip+1)}
           else
@@ -89,16 +65,16 @@ defmodule Xpeg do
 
       {:return} ->
         quote do
-          trace(unquote(ip), "return #{inspect(state.ret_stack)}", s)
+          trace(state, unquote(ip), "return #{inspect(state.ret_stack)}", s)
           case state.ret_stack do
             [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
-            [] -> {%{state | result: :ok}, s, ip}
+            [] -> {%{state | state: :ok}, s, ip}
           end
         end
 
       {:choice, off_back, off_commit} ->
         quote do
-          trace(unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
+          trace(state, unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
           frame = %{
             ip_back: ip + unquote(off_back),
             ip_commit: ip + unquote(off_commit),
@@ -111,7 +87,7 @@ defmodule Xpeg do
 
       {:commit} ->
         quote do
-          trace(unquote(ip), "commit", s)
+          trace(state, unquote(ip), "commit", s)
           [frame | back_stack] = state.back_stack
           state = %{state | :back_stack => back_stack}
           {state, s, frame.ip_commit}
@@ -119,44 +95,49 @@ defmodule Xpeg do
 
       {:call, addr} ->
         quote do
-          trace(unquote(ip), "call #{unquote addr}", s)
+          trace(state, unquote(ip), "call #{unquote addr}", s)
           state = %{state | ret_stack: [ip+1 | state.ret_stack]}
           {state, s, unquote(addr)}
         end
 
       {:capopen} ->
         quote do
-          trace(unquote(ip), "capopen", s)
+          trace(state, unquote(ip), "capopen", s)
           state = %{state | :cap_stack => [{:open, s} | state.cap_stack]}
+          {state, s, unquote(ip+1)}
+        end
+        
+      {:capclose,} ->
+        quote do
+          trace(state, unquote(ip), "capclose", s)
+          state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
           {state, s, unquote(ip+1)}
         end
       
       {:capclose, code} ->
         quote do
-          trace(unquote(ip), "capclose", s)
-          state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
+          trace(state, unquote(ip), "capclose", s)
+          state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
           {cap_stack, captures} = collect(state.cap_stack)
-          state = %{state | :cap_stack => cap_stack}
           var!(captures) = captures
-          unquote code
+          res = unquote code
+          state = %{state | cap_stack: cap_stack, result: [res | state.result]}
           {state, s, unquote(ip+1)}
         end
 
       {:fail} ->
         quote do
-          trace(unquote(ip), "fail", s)
+          trace(state, unquote(ip), "fail", s)
           case state.back_stack do
             [frame | back_stack] ->
               state = %{state | back_stack: back_stack, ret_stack: frame.ret_stack}
               {state, frame.s, frame.ip_back}
             [] ->
-              state = %{state | result: :error}
+              state = %{state | state: :error}
               {state, s, 0}
           end
         end
     end
-
-    {:->, [], [[ip], body] }
 
   end
 
@@ -165,7 +146,8 @@ defmodule Xpeg do
 
     cases = program.instructions
             |> Enum.map(fn {ip, inst} ->
-              emit_inst(ip, inst)
+              body = emit_inst(ip, inst)
+              {:->, [], [[ip], body] }
             end)
 
     ret = quote do
@@ -173,18 +155,18 @@ defmodule Xpeg do
         {state, s, ip} = case ip do
           unquote(cases)
         end
-        state = %{state | count: state.count+1}
-        case {state.result, state.count} do
-          {_, 100} ->
+        state = %{state | steps: state.steps-1}
+        case {state.state, state.steps} do
+          {_, 0} ->
             IO.puts("too deep")
             state
           {:ok, _} ->
-            IO.puts("done")
+            IO.puts("ok")
             state
           {:error, _} ->
             IO.puts("error")
             state
-          {:unknown, _} -> 
+          {:running, _} -> 
             self.(self, state, s, ip)
         end
       end
@@ -201,11 +183,15 @@ defmodule Xpeg do
       symtab: Map.put(program.symtab, name, Enum.count(program.instructions)),
       instructions: program.instructions ++ instructions
     }
-    program = Enum.reduce(instructions, program, fn inst, program ->
+    Enum.reduce(instructions, program, fn inst, program ->
       case inst do
-        {:call, name} ->
-          if ! Map.has_key?(program.symtab, name) do
-            link_one(program, rules, name)
+        {:call, callname} ->
+          if ! Map.has_key?(rules, callname) do
+            msg = "rule '#{name}' is referencing undefined rule '#{callname}'"
+            raise ArgumentError, message: msg
+          end
+          if ! Map.has_key?(program.symtab, callname) do
+            link_one(program, rules, callname)
           else
             program
           end
@@ -236,10 +222,11 @@ defmodule Xpeg do
 
 
   defmacro peg(start, [{:do, v}]) do
-    fns = %{
+    %{
       start: start,
       rules: parse(v)
     }
+    #|> IO.inspect
     |> link_grammar
     #|> IO.inspect
     |> emit_program
@@ -248,35 +235,33 @@ defmodule Xpeg do
 
   def exec(f, s) do
     state = %{
-      s: String.to_charlist(s),
+      state: :running,
       back_stack: [],
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      result: :unknown,
-      count: 0,
+      result: [],
+      steps: 1000,
+      do_trace: true,
     }
     f.(f, state, String.to_charlist(s), 0)
-#    |> collect_captures
   end
 
 
   def run2() do
     program = peg :test do
-      test <- two * two::
-        IO.puts("twos")
-      two <- {'0'..'9'} ::
-        IO.puts("one")
+      test <- two * star("," * two) ::(
+        IO.puts("test #{inspect captures}")
+      )
+      two <- hex #::(
+        #IO.puts("two #{inspect captures}")
+      #)
+      hex <- +{'0'..'9','a'..'f','A'..'F'} ::
+        String.to_integer(hd(captures), 16)
       wop <- 1
 
-      #test <- hex * star(s * hex) ::
-      #  IO.puts("all")
-      #s <- ' '
-      #other <- +1
-      #hex <- +{'A'..'F','a'..'f','0'..'9'} ::
-      #  IO.puts("gottit")
     end
-    exec(program, "1234")
+    exec(program, "1234,22ac,b52a")
   end
 
 end

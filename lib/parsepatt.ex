@@ -70,7 +70,7 @@ defmodule Parsepatt do
 
       # Capture
       {:cap, [p]} ->
-        List.flatten([{:capopen}, parse(p), {:capclose, nil}])
+        List.flatten([{:capopen}, parse(p), {:capclose}])
 
       # Char range
       {:.., [[lo], [hi]]} ->
@@ -78,6 +78,7 @@ defmodule Parsepatt do
 
       # Code block
       {:"::", [p, code] } ->
+        #IO.inspect(code)
         List.flatten([{:capopen}, parse(p), {:capclose, code}])
 
       e -> raise("Syntax error at #{inspect e}")
