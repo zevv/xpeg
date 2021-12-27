@@ -6,23 +6,51 @@ defmodule Xpeg do
   import Parsepatt
   
 
-  def collect_captures(state) do
-    captures =
-      state.cap_stack
-      |> Enum.reverse()
-      |> Enum.reduce({[], []}, fn frame, {acc, caps} ->
-        case {frame, acc} do
-          {{:open, _, _}, _} ->
-            {[frame | acc], caps}
 
-          {{:close, oc, _sc}, [{:open, oo, so} | t]} ->
-            {t, [Enum.take(so, oo - oc) | caps]}
-        end
-      end)
-      |> elem(1)
-      |> Enum.reverse()
+  def collect(stack, acc, caps) do
 
-    %{state | captures: captures}
+    #IO.puts("stack #{inspect stack}")
+    #IO.puts("acc   #{inspect acc}")
+    #IO.puts("-------")
+
+    case {stack, acc} do
+
+      {[ {:open, s} | stack], _} ->
+        collect(stack, [ {:open, s} | acc], caps)
+      {[ {:close, sc} | stack], [{:open, so} | acc]} ->
+        len = Enum.count(so) - Enum.count(sc)
+        caps = [Enum.take(so, len) | caps]
+        collect(stack, acc, caps)
+      {_, acc} ->
+        {acc, caps}
+
+    end
+
+  end
+ 
+
+  def collect(cap_stack) do
+
+    {cap_stack, captures} = collect(Enum.reverse(cap_stack), [], [])
+
+  end
+
+
+  def cc() do
+    [
+      {:close, ' a4 4a2'},
+      {:open, '22 a4 4a2'},
+      {:open, '22 a4 4a2'},
+      {:open, '12 a4 4a2'},
+    ]
+    |> collect
+
+
+  end
+
+
+  def trace(ip, cmd, s) do
+    IO.puts("   #{ip} | #{cmd} | #{s}")
   end
 
 
@@ -33,7 +61,7 @@ defmodule Xpeg do
 
       {:any, _} ->
         quote do
-          IO.puts("any")
+          trace(unquote(ip), "any", s)
           case s do
             [_ | s] -> {state, s, unquote(ip+1)}
             _ -> {state, s, :fail}
@@ -42,7 +70,7 @@ defmodule Xpeg do
 
       {:chr, c} ->
         quote do
-          IO.puts("chr #{unquote(c)}")
+          trace(unquote(ip), "chr #{unquote(c)}", s)
           case s do
             [unquote(c) | s] -> {state, s, unquote(ip+1)}
             _ -> {state, s, :fail}
@@ -51,7 +79,7 @@ defmodule Xpeg do
 
       {:set, cs} ->
         quote do
-          IO.puts("set")
+          trace(unquote(ip), "set", s)
           if s != [] and hd(s) in unquote(MapSet.to_list(cs)) do
             {state, tl(s), unquote(ip+1)}
           else
@@ -61,7 +89,7 @@ defmodule Xpeg do
 
       {:return} ->
         quote do
-          IO.puts("return #{inspect(state.ret_stack)}")
+          trace(unquote(ip), "return #{inspect(state.ret_stack)}", s)
           case state.ret_stack do
             [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
             [] -> {%{state | result: :ok}, s, ip}
@@ -70,7 +98,7 @@ defmodule Xpeg do
 
       {:choice, off_back, off_commit} ->
         quote do
-          IO.puts("choice #{unquote(off_back)} #{unquote(off_commit)}")
+          trace(unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
           frame = %{
             ip_back: ip + unquote(off_back),
             ip_commit: ip + unquote(off_commit),
@@ -83,7 +111,7 @@ defmodule Xpeg do
 
       {:commit} ->
         quote do
-          IO.puts("commit")
+          trace(unquote(ip), "commit", s)
           [frame | back_stack] = state.back_stack
           state = %{state | :back_stack => back_stack}
           {state, s, frame.ip_commit}
@@ -91,28 +119,32 @@ defmodule Xpeg do
 
       {:call, addr} ->
         quote do
-          IO.puts("call #{unquote addr}")
+          trace(unquote(ip), "call #{unquote addr}", s)
           state = %{state | ret_stack: [ip+1 | state.ret_stack]}
           {state, s, unquote(addr)}
         end
 
       {:capopen} ->
         quote do
-          IO.puts("capopen")
-          state = %{state | :cap_stack => [{:open, length(s), s} | state.cap_stack]}
+          trace(unquote(ip), "capopen", s)
+          state = %{state | :cap_stack => [{:open, s} | state.cap_stack]}
           {state, s, unquote(ip+1)}
         end
       
-      {:capclose, func} ->
+      {:capclose, code} ->
         quote do
-          unquote func
-          state = %{state | :cap_stack => [{:close, length(s), s} | state.cap_stack]}
+          trace(unquote(ip), "capclose", s)
+          state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
+          {cap_stack, captures} = collect(state.cap_stack)
+          state = %{state | :cap_stack => cap_stack}
+          var!(captures) = captures
+          unquote code
           {state, s, unquote(ip+1)}
         end
 
       {:fail} ->
         quote do
-          IO.puts("fail")
+          trace(unquote(ip), "fail", s)
           case state.back_stack do
             [frame | back_stack] ->
               state = %{state | back_stack: back_stack, ret_stack: frame.ret_stack}
@@ -124,12 +156,7 @@ defmodule Xpeg do
         end
     end
 
-    {:->, [],
-        [
-          [ip],
-          body
-        ]
-    }
+    {:->, [], [[ip], body] }
 
   end
 
@@ -214,9 +241,8 @@ defmodule Xpeg do
       rules: parse(v)
     }
     |> link_grammar
-    |> IO.inspect
+    #|> IO.inspect
     |> emit_program
-
   end
 
 
@@ -231,20 +257,26 @@ defmodule Xpeg do
       count: 0,
     }
     f.(f, state, String.to_charlist(s), 0)
-    |> collect_captures
+#    |> collect_captures
   end
 
 
   def run2() do
     program = peg :test do
-      test <- hex * star(s * hex)
-      s <- ' '
-      other <- +1
-      hex <- +{'A'..'F','a'..'f','0'..'9'} ::
-        IO.puts("gottit")
-    end
+      test <- two * two::
+        IO.puts("twos")
+      two <- {'0'..'9'} ::
+        IO.puts("one")
+      wop <- 1
 
-    exec(program, "22 a4 4a2")
+      #test <- hex * star(s * hex) ::
+      #  IO.puts("all")
+      #s <- ' '
+      #other <- +1
+      #hex <- +{'A'..'F','a'..'f','0'..'9'} ::
+      #  IO.puts("gottit")
+    end
+    exec(program, "1234")
   end
 
 end
