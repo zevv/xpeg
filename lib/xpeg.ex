@@ -108,9 +108,11 @@ defmodule Xpeg do
       {:capclose, code} -> quote do
         trace(state, unquote(ip), "capclose", s)
         state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
-        {cap_stack, var!(captures)} = collect(state.cap_stack)
-        res = unquote code
-        state = %{state | cap_stack: cap_stack, result: [res | state.result]}
+        {cap_stack, captures} = collect(state.cap_stack)
+        var!(captures) = captures
+        var!(result) = state.result
+        result = unquote code
+        state = %{state | cap_stack: cap_stack, result: result}
         {state, s, unquote(ip+1)}
       end
 
@@ -227,27 +229,34 @@ defmodule Xpeg do
       cap_stack: [],
       captures: [],
       result: [],
-      steps: 1000,
-      do_trace: true,
+      steps: 1000000,
+      do_trace: false,
     }
     f.(f, state, String.to_charlist(s), 0)
   end
 
 
-  def run2() do
-    program = peg :test do
-      test <- two * star("," * two) ::(
-        IO.puts("test #{inspect captures}")
+  def run() do
+    p = peg :data do
+      data <- +line
+      line <- pair * " -> " * pair * "\n"  :: (
+        IO.inspect({"caps", captures})
+          [p1, p2 | result] = result
+          [[p1, p2] | result]
       )
-      two <- hex #::(
-        #IO.puts("two #{inspect captures}")
-      #)
-      hex <- +{'0'..'9','a'..'f','A'..'F'} ::
-        String.to_integer(hd(captures), 16)
-      wop <- 1
-
+      pair <- n * "," * n :: (
+        [v1, v2 | result] = result
+        [[x: v1, y: v2] | result]
+      )
+      n <- +{'0'..'9'} :: (
+        v = String.to_integer(hd(captures))
+        [v | result]
+      )
     end
-    exec(program, "1234,22ac,b52a")
+
+    d = "258,707 -> 773,707\n68,788 -> 68,875\n858,142 -> 758,142\n"
+    #d = "258,707 -> 773,707\n"
+    exec(p, d)
   end
 
 end
