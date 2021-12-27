@@ -35,114 +35,102 @@ defmodule Xpeg do
 
     case inst do
 
-      {:any, _} ->
-        quote do
-          trace(state, unquote(ip), "any", s)
-          case s do
-            [_ | s] -> {state, s, unquote(ip+1)}
-            _ -> {state, s, :fail}
-          end
+      {:any, _} -> quote do
+        trace(state, unquote(ip), "any", s)
+        case s do
+          [_ | s] -> {state, s, unquote(ip+1)}
+          _ -> {state, s, :fail}
         end
+      end
 
-      {:chr, c} ->
-        quote do
-          trace(state, unquote(ip), "chr #{unquote(c)}", s)
-          case s do
-            [unquote(c) | s] -> {state, s, unquote(ip+1)}
-            _ -> {state, s, :fail}
-          end
+      {:chr, c} -> quote do
+        trace(state, unquote(ip), "chr #{unquote(c)}", s)
+        case s do
+          [unquote(c) | s] -> {state, s, unquote(ip+1)}
+          _ -> {state, s, :fail}
         end
+      end
 
-      {:set, cs} ->
-        quote do
-          trace(state, unquote(ip), "set", s)
-          if s != [] and hd(s) in unquote(MapSet.to_list(cs)) do
-            {state, tl(s), unquote(ip+1)}
-          else
-            {state, s, :fail}
-          end
+      {:set, cs} -> quote do
+        trace(state, unquote(ip), "set", s)
+        if s != [] and hd(s) in unquote(MapSet.to_list(cs)) do
+          {state, tl(s), unquote(ip+1)}
+        else
+          {state, s, :fail}
         end
+      end
 
-      {:return} ->
-        quote do
-          trace(state, unquote(ip), "return #{inspect(state.ret_stack)}", s)
-          case state.ret_stack do
-            [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
-            [] -> {%{state | state: :ok}, s, ip}
-          end
+      {:return} -> quote do
+        trace(state, unquote(ip), "return #{inspect(state.ret_stack)}", s)
+        case state.ret_stack do
+          [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
+          [] -> {%{state | state: :ok}, s, ip}
         end
+      end
 
-      {:choice, off_back, off_commit} ->
-        quote do
-          trace(state, unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
-          frame = %{
-            ip_back: ip + unquote(off_back),
-            ip_commit: ip + unquote(off_commit),
-            ret_stack: state.ret_stack,
-            s: s
-          }
-          state = %{state | :back_stack => [frame | state.back_stack]}
-          {state, s, unquote(ip+1)}
-        end
+      {:choice, off_back, off_commit} -> quote do
+        trace(state, unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
+        frame = %{
+          ip_back: ip + unquote(off_back),
+          ip_commit: ip + unquote(off_commit),
+          ret_stack: state.ret_stack,
+          s: s
+        }
+        state = %{state | :back_stack => [frame | state.back_stack]}
+        {state, s, unquote(ip+1)}
+      end
 
-      {:commit} ->
-        quote do
-          trace(state, unquote(ip), "commit", s)
-          [frame | back_stack] = state.back_stack
-          state = %{state | :back_stack => back_stack}
-          {state, s, frame.ip_commit}
-        end
+      {:commit} -> quote do
+        trace(state, unquote(ip), "commit", s)
+        [frame | back_stack] = state.back_stack
+        state = %{state | :back_stack => back_stack}
+        {state, s, frame.ip_commit}
+      end
 
-      {:call, addr} ->
-        quote do
-          trace(state, unquote(ip), "call #{unquote addr}", s)
-          state = %{state | ret_stack: [ip+1 | state.ret_stack]}
-          {state, s, unquote(addr)}
-        end
+      {:call, addr} -> quote do
+        trace(state, unquote(ip), "call #{unquote addr}", s)
+        state = %{state | ret_stack: [ip+1 | state.ret_stack]}
+        {state, s, unquote(addr)}
+      end
 
-      {:capopen} ->
-        quote do
-          trace(state, unquote(ip), "capopen", s)
-          state = %{state | :cap_stack => [{:open, s} | state.cap_stack]}
-          {state, s, unquote(ip+1)}
-        end
-        
-      {:capclose,} ->
-        quote do
-          trace(state, unquote(ip), "capclose", s)
-          state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
-          {state, s, unquote(ip+1)}
-        end
-      
-      {:capclose, code} ->
-        quote do
-          trace(state, unquote(ip), "capclose", s)
-          state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
-          {cap_stack, captures} = collect(state.cap_stack)
-          var!(captures) = captures
-          res = unquote code
-          state = %{state | cap_stack: cap_stack, result: [res | state.result]}
-          {state, s, unquote(ip+1)}
-        end
+      {:capopen} -> quote do
+        trace(state, unquote(ip), "capopen", s)
+        state = %{state | :cap_stack => [{:open, s} | state.cap_stack]}
+        {state, s, unquote(ip+1)}
+      end
 
-      {:fail} ->
-        quote do
-          trace(state, unquote(ip), "fail", s)
-          case state.back_stack do
-            [frame | back_stack] ->
-              state = %{state | back_stack: back_stack, ret_stack: frame.ret_stack}
-              {state, frame.s, frame.ip_back}
-            [] ->
-              state = %{state | state: :error}
-              {state, s, 0}
-          end
+      {:capclose,} -> quote do
+        trace(state, unquote(ip), "capclose", s)
+        state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
+        {state, s, unquote(ip+1)}
+      end
+
+      {:capclose, code} -> quote do
+        trace(state, unquote(ip), "capclose", s)
+        state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
+        {cap_stack, var!(captures)} = collect(state.cap_stack)
+        res = unquote code
+        state = %{state | cap_stack: cap_stack, result: [res | state.result]}
+        {state, s, unquote(ip+1)}
+      end
+
+      {:fail} -> quote do
+        trace(state, unquote(ip), "fail", s)
+        case state.back_stack do
+          [frame | back_stack] ->
+            state = %{state | back_stack: back_stack, ret_stack: frame.ret_stack}
+            {state, frame.s, frame.ip_back}
+          [] ->
+            state = %{state | state: :error}
+            {state, s, 0}
         end
+      end
     end
 
   end
 
 
-  def emit_program(program) do
+  def emit(program) do
 
     cases = program.instructions
             |> Enum.map(fn {ip, inst} ->
@@ -226,10 +214,8 @@ defmodule Xpeg do
       start: start,
       rules: parse(v)
     }
-    #|> IO.inspect
     |> link_grammar
-    #|> IO.inspect
-    |> emit_program
+    |> emit
   end
 
 
