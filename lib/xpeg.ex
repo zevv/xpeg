@@ -116,6 +116,15 @@ defmodule Xpeg do
         {state, s, unquote(ip+1)}
       end
 
+      {:code, code} -> quote do
+        {cap_stack, captures} = collect(state.cap_stack)
+        var!(captures) = captures
+        var!(result) = state.result
+        result = unquote code
+        state = %{state | cap_stack: cap_stack, result: result}
+        {state, s, unquote(ip+1)}
+      end
+
       {:fail} -> quote do
         trace(state, unquote(ip), "fail", s)
         case state.back_stack do
@@ -141,7 +150,7 @@ defmodule Xpeg do
             end)
 
     ret = quote do
-      fn self, state, s, ip -> 
+      fn state, s, ip -> 
         {state, s, ip} = case ip do
           unquote(cases)
         end
@@ -157,12 +166,12 @@ defmodule Xpeg do
             IO.puts("error")
             state
           {:running, _} -> 
-            self.(self, state, s, ip)
+            state.f.(state, s, ip)
         end
       end
     end
 
-    IO.puts(Macro.to_string(ret))
+    #IO.puts(Macro.to_string(ret))
     ret
   end
  
@@ -177,8 +186,7 @@ defmodule Xpeg do
       case inst do
         {:call, callname} ->
           if ! Map.has_key?(rules, callname) do
-            msg = "rule '#{name}' is referencing undefined rule '#{callname}'"
-            raise ArgumentError, message: msg
+            raise("XPeg: rule '#{name}' is referencing undefined rule '#{callname}'")
           end
           if ! Map.has_key?(program.symtab, callname) do
             link_one(program, rules, callname)
@@ -217,12 +225,14 @@ defmodule Xpeg do
       rules: parse(v)
     }
     |> link_grammar
+    #|> IO.inspect
     |> emit
   end
 
 
   def exec(f, s) do
     state = %{
+      f: f,
       state: :running,
       back_stack: [],
       ret_stack: [],
@@ -232,31 +242,46 @@ defmodule Xpeg do
       steps: 1000000,
       do_trace: false,
     }
-    f.(f, state, String.to_charlist(s), 0)
+
+    state = f.(state, String.to_charlist(s), 0)
+    #{cap_stack, captures} = collect(state.cap_stack)
   end
 
 
   def run() do
     p = peg :data do
-      data <- +line
-      line <- pair * " -> " * pair * "\n"  :: (
-        IO.inspect({"caps", captures})
+      :data <- +:line
+      :line <- :pair * " -> " * :pair * "\n" * &(
           [p1, p2 | result] = result
           [[p1, p2] | result]
       )
-      pair <- n * "," * n :: (
+      :pair <- :n * "," * :n * &(
         [v1, v2 | result] = result
         [[x: v1, y: v2] | result]
       )
-      n <- +{'0'..'9'} :: (
-        v = String.to_integer(hd(captures))
-        [v | result]
+      :n <- cap(+{'0'..'9'}) * &(
+        [String.to_integer(&1) | result]
       )
     end
 
     d = "258,707 -> 773,707\n68,788 -> 68,875\n858,142 -> 758,142\n"
     #d = "258,707 -> 773,707\n"
     exec(p, d)
+  end
+
+
+  def run2() do
+    p = peg :dict do
+      :dict <- :pair * star("," * :pair) * !1
+      :pair <- :word * "=" * :number * &([{&1, &2} | result])
+      :word <- cap(+{'a'..'z'})
+      :number <- cap(+{'0'..'9'}) 
+    end
+
+    s = exec(p, "grass=4,horse=1,star=2")
+
+    [{"2", "star"}, {"1", "horse"}, {"4", "grass"}] == s.result
+
   end
 
 end

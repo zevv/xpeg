@@ -19,6 +19,9 @@ defmodule Parsepatt do
       # Named rule
       {:<-, [{label, _, nil}, patt]} ->
         {label, parse(patt) ++ [{:return}]}
+      
+      {:<-, [label, patt]} ->
+        {label, parse(patt) ++ [{:return}]}
 
       {:<-, [{:__aliases__, _, [label]}, patt]} ->
         {label, parse(patt) ++ [{:return}]}
@@ -60,13 +63,13 @@ defmodule Parsepatt do
       {{:., _, [Access, :get]}, [p, count]} ->
         List.duplicate(parse(p), count) |> List.flatten()
 
-      # Call
-      {label, nil} ->
-        [{:call, label}]
+      ## Call
+      #{label, nil} ->
+      #  [{:call, label}]
 
-      # I forgot
-      {:__aliases__, [label]} ->
-        [{:call, label}]
+      ## I forgot
+      #{:__aliases__, [label]} ->
+      #  [{:call, label}]
 
       # Capture
       {:cap, [p]} ->
@@ -81,12 +84,59 @@ defmodule Parsepatt do
         #IO.inspect(code)
         List.flatten([{:capopen}, parse(p), {:capclose, code}])
 
-      e -> raise("Syntax error at #{inspect e}")
+      # Code block
+      {:&, [code]} ->
+        [{:code, substitute_ampersands(code)}]
+
+      e -> raise("XPeg: Syntax error at '#{Macro.to_string(e)}'")
 
     end
 
   end
-  
+
+
+  def parse(atom) when is_atom(atom) do
+    [{:call, atom}]
+  end
+
+
+  # Handler for funny AST in `{}` charsets
+  def parse({p1, p2}) do
+    case {p1, p2} do
+      {[a], [b]} ->
+        [{:set, MapSet.new([a, b])}]
+      {{:.., _, [[lo1], [hi1]]}, {:.., _, [[lo2], [hi2]]}} ->
+        s = MapSet.new()
+            |> MapSet.union(Range.new(lo1, hi1) |> MapSet.new())
+            |> MapSet.union(Range.new(lo2, hi2) |> MapSet.new())
+        [{:set, s}]
+    end
+  end
+
+
+  # Transform AST literals into PEG IR
+  def parse(p) do
+    case p do
+      0 -> [{:nop}]
+      v when is_atom(v) -> v
+      v when is_number(v) -> [{:any, v}]
+      v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
+      [v] -> [{:chr, v}]
+      v -> raise("Unhandled lit: #{inspect(v)}")
+    end
+  end
+
+
+  defp substitute_ampersands(n) do
+    case n do
+      {:&, li, [idx]} -> {{:., li, [{:__aliases__, li, [:Enum]}, :at]}, li, [{:captures, li, nil}, idx-1]}
+      {name, li, kids} when is_list(kids) -> {name, li, Enum.map(kids, &substitute_ampersands/1)}
+      l when is_list(l) -> Enum.map(l, &substitute_ampersands/1)
+      {a, b} -> {substitute_ampersands(a), substitute_ampersands(b)}
+      n -> n
+    end
+  end
+
   # Transform AST character set to PEG IR. `{'x','y','A'..'F','0'}`
   def parse_set(ps) do
     s = Enum.reduce(ps, MapSet.new(), fn p, s ->
@@ -100,30 +150,6 @@ defmodule Parsepatt do
     s
   end
 
-  # Handler for funny AST in `{}` charsets
-  def parse({p1, p2}) do
-    case {p1, p2} do
-      {[a], [b]} ->
-        [{:set, MapSet.new([a, b])}]
-      {{:.., _, [[lo1], [hi1]]}, {:.., _, [[lo2], [hi2]]}} ->
-        s = MapSet.new() 
-            |> MapSet.union(Range.new(lo1, hi1) |> MapSet.new())
-            |> MapSet.union(Range.new(lo2, hi2) |> MapSet.new())
-        [{:set, s}]
-    end
-  end
-
-  # Transform AST literals into PEG IR
-  def parse(p) do
-    case p do
-      0 -> [{:nop}]
-      v when is_atom(v) -> v
-      v when is_number(v) -> [{:any, v}]
-      v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
-      [v] -> [{:chr, v}]
-      v -> raise("Unhandled lit: #{inspect(v)}")
-    end
-  end
 
 end
 
