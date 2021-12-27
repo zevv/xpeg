@@ -14,9 +14,9 @@ defmodule Patt do
   end
 
   # kleene-star-operator for sets make a :span
-  def mk_star(set: cs) do
-    [{:span, cs}]
-  end
+  #def mk_star(set: cs) do
+  #  [{:span, cs}]
+  #end
 
   # Generic kleene-star operator
   def mk_star(p) do

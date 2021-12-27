@@ -44,6 +44,7 @@ defmodule Parsepatt do
         p = parse(p)
         p ++ mk_star(p)
 
+      # Difference
       {:-, [p1, p2]} ->
         mk_minus(parse(p1), parse(p2))
 
@@ -63,6 +64,7 @@ defmodule Parsepatt do
       {label, nil} ->
         [{:call, label}]
 
+      # I forgot
       {:__aliases__, [label]} ->
         [{:call, label}]
 
@@ -70,9 +72,11 @@ defmodule Parsepatt do
       {:cap, [p]} ->
         List.flatten([{:capopen}, parse(p), {:capclose, nil}])
 
+      # Char range
       {:.., [[lo], [hi]]} ->
       [{:set, Range.new(lo, hi) |> Enum.into([]) |> List.flatten() |> MapSet.new() }]
 
+      # Code block
       {:"::", [p, code] } ->
         List.flatten([{:capopen}, parse(p), {:capclose, code}])
 
