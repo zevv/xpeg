@@ -70,7 +70,7 @@ defmodule Xpeg do
         trace(state, unquote(ip), "return #{inspect(state.ret_stack)}", s)
         case state.ret_stack do
           [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
-          [] -> {%{state | state: :ok}, s, ip}
+          [] -> {%{state | status: :ok}, s, ip}
         end
       end
 
@@ -126,7 +126,7 @@ defmodule Xpeg do
             state = %{state | back_stack: back_stack, ret_stack: frame.ret_stack}
             {state, frame.s, frame.ip_back}
           [] ->
-            state = %{state | state: :error}
+            state = %{state | status: :error}
             {state, s, 0}
         end
       end
@@ -148,15 +148,11 @@ defmodule Xpeg do
         {state, s, ip} = case ip do
           unquote(cases)
         end
-        case state.state do
-          :ok ->
-            IO.puts("ok")
-            state
-          :error ->
-            IO.puts("error")
-            state
+        case state.status do
           :running -> 
             state.func.(state, s, ip)
+          _ ->
+            state
         end
       end
     end
@@ -223,7 +219,7 @@ defmodule Xpeg do
   def exec(func, s) do
     state = %{
       func: func,
-      state: :running,
+      status: :running,
       back_stack: [],
       ret_stack: [],
       cap_stack: [],
@@ -232,9 +228,8 @@ defmodule Xpeg do
       do_trace: false,
     }
 
-    state =
-      state.func.(state, String.to_charlist(s), 0)
-      |> collect_captures()
+    state.func.(state, String.to_charlist(s), 0)
+    |> collect_captures()
   end
 
   def run2() do
@@ -249,7 +244,7 @@ defmodule Xpeg do
       end
     end
 
-    s = exec(p, "grass=4,horse=1,star=2")
+    exec(p, "grass=4,horse=1,star=2")
 
   end
 

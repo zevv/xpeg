@@ -77,7 +77,6 @@ defmodule Parsepatt do
 
       # Code block
       {:fn, [code]} ->
-        IO.inspect(code)
         [{:code, {:fn, lineinfo, [code]}}]
 
       e -> raise("XPeg: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n\n")
