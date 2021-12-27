@@ -18,8 +18,14 @@ defmodule Xpeg do
     end
   end
 
-  def collect(cap_stack) do
-    collect(Enum.reverse(cap_stack), [], [])
+  def collect(state) do
+    {cap_stack, captures} = state.cap_stack
+                            |> Enum.reverse
+                            |> collect([], [])
+    %{state |
+      cap_stack: cap_stack,
+      captures: captures ++ state.captures 
+    }
   end
 
   def trace(state, ip, cmd, s) do
@@ -105,23 +111,11 @@ defmodule Xpeg do
         {state, s, unquote(ip+1)}
       end
 
-      {:capclose, code} -> quote do
-        trace(state, unquote(ip), "capclose", s)
-        state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
-        {cap_stack, captures} = collect(state.cap_stack)
-        var!(captures) = captures
-        var!(result) = state.result
-        result = unquote code
-        state = %{state | cap_stack: cap_stack, result: result}
-        {state, s, unquote(ip+1)}
-      end
-
       {:code, code} -> quote do
-        {cap_stack, captures} = collect(state.cap_stack)
-        var!(captures) = captures
-        var!(result) = state.result
-        result = unquote code
-        state = %{state | cap_stack: cap_stack, result: result}
+        state = collect(state)
+        func = unquote code
+        captures = func.(state.captures)
+        state = %{state | captures: captures}
         {state, s, unquote(ip+1)}
       end
 
@@ -171,7 +165,7 @@ defmodule Xpeg do
       end
     end
 
-    #IO.puts(Macro.to_string(ret))
+    IO.puts(Macro.to_string(ret))
     ret
   end
  
@@ -243,44 +237,45 @@ defmodule Xpeg do
       do_trace: false,
     }
 
-    state = f.(state, String.to_charlist(s), 0)
-    #{cap_stack, captures} = collect(state.cap_stack)
+    state =
+      f.(state, String.to_charlist(s), 0)
+      |> collect()
   end
-
-
-  def run() do
-    p = peg :data do
-      :data <- +:line
-      :line <- :pair * " -> " * :pair * "\n" * &(
-          [p1, p2 | result] = result
-          [[p1, p2] | result]
-      )
-      :pair <- :n * "," * :n * &(
-        [v1, v2 | result] = result
-        [[x: v1, y: v2] | result]
-      )
-      :n <- cap(+{'0'..'9'}) * &(
-        [String.to_integer(&1) | result]
-      )
-    end
-
-    d = "258,707 -> 773,707\n68,788 -> 68,875\n858,142 -> 758,142\n"
-    #d = "258,707 -> 773,707\n"
-    exec(p, d)
-  end
-
+  #
+  #
+  #  def run() do
+  #    p = peg :data do
+  #      :data <- +:line
+  #      :line <- :pair * " -> " * :pair * "\n" * &(
+  #          [p1, p2 | result] = result
+  #          [[p1, p2] | result]
+  #      )
+  #      :pair <- :n * "," * :n * &(
+  #        [v1, v2 | result] = result
+  #        [[x: v1, y: v2] | result]
+  #      )
+  #      :n <- cap(+{'0'..'9'}) * &(
+  #        [String.to_integer(&1) | result]
+  #      )
+  #    end
+  #
+  #    d = "258,707 -> 773,707\n68,788 -> 68,875\n858,142 -> 758,142\n"
+  #    #d = "258,707 -> 773,707\n"
+  #    exec(p, d)
+  #  end
+  #
 
   def run2() do
     p = peg :dict do
       :dict <- :pair * star("," * :pair) * !1
-      :pair <- :word * "=" * :number * &([{&1, &2} | result])
-      :word <- cap(+{'a'..'z'})
-      :number <- cap(+{'0'..'9'}) 
+      :pair <- :word * "=" * :number * fn [a, b | cs] -> [{a, b} | cs] end
+      :word <- cap(+{'a'..'z'}) 
+      :number <- cap(+{'0'..'9'}) * fn [v| cs] -> [String.to_integer(v) | cs] end
     end
 
     s = exec(p, "grass=4,horse=1,star=2")
 
-    [{"2", "star"}, {"1", "horse"}, {"4", "grass"}] == s.result
+    #[{"2", "star"}, {"1", "horse"}, {"4", "grass"}] = s.result
 
   end
 

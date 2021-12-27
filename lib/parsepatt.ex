@@ -4,7 +4,7 @@ defmodule Parsepatt do
   import Patt
 
   # Transform AST tuples into PEG IR
-  def parse({id, _meta, args}) do
+  def parse({id, lineinfo, args}) do
     #IO.inspect {"parse", id, args}
 
     case {id, args} do
@@ -63,14 +63,6 @@ defmodule Parsepatt do
       {{:., _, [Access, :get]}, [p, count]} ->
         List.duplicate(parse(p), count) |> List.flatten()
 
-      ## Call
-      #{label, nil} ->
-      #  [{:call, label}]
-
-      ## I forgot
-      #{:__aliases__, [label]} ->
-      #  [{:call, label}]
-
       # Capture
       {:cap, [p]} ->
         List.flatten([{:capopen}, parse(p), {:capclose}])
@@ -80,15 +72,15 @@ defmodule Parsepatt do
       [{:set, Range.new(lo, hi) |> Enum.into([]) |> List.flatten() |> MapSet.new() }]
 
       # Code block
-      {:"::", [p, code] } ->
-        #IO.inspect(code)
-        List.flatten([{:capopen}, parse(p), {:capclose, code}])
-
-      # Code block
       {:&, [code]} ->
         [{:code, substitute_ampersands(code)}]
 
-      e -> raise("XPeg: Syntax error at '#{Macro.to_string(e)}'")
+      # Code block
+      {:fn, [code]} ->
+        IO.inspect(code)
+        [{:code, {:fn, lineinfo, [code]}}]
+
+      e -> raise("XPeg: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n\n")
 
     end
 
@@ -126,8 +118,14 @@ defmodule Parsepatt do
     end
   end
 
-
   defp substitute_ampersands(n) do
+    Macro.postwalk(n, fn
+      {:&, li, [idx]} -> {{:., li, [{:__aliases__, li, [:Enum]}, :at]}, li, [{:captures, li, nil}, idx-1]}
+      other -> other
+    end)
+  end
+
+  defp substitute_ampersands2(n) do
     case n do
       {:&, li, [idx]} -> {{:., li, [{:__aliases__, li, [:Enum]}, :at]}, li, [{:captures, li, nil}, idx-1]}
       {name, li, kids} when is_list(kids) -> {name, li, Enum.map(kids, &substitute_ampersands/1)}
