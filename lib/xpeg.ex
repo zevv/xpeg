@@ -59,10 +59,9 @@ defmodule Xpeg do
 
       {:set, cs} -> quote do
         trace(state, unquote(ip), "set", s)
-        if s != [] and hd(s) in unquote(MapSet.to_list(cs)) do
-          {state, tl(s), unquote(ip+1)}
-        else
-          {state, s, :fail}
+        case s do
+          [c | s ] when c in unquote(MapSet.to_list(cs)) -> {state, s, unquote(ip+1)}
+          _ -> {state, s, :fail}
         end
       end
 
@@ -82,14 +81,14 @@ defmodule Xpeg do
           ret_stack: state.ret_stack,
           s: s
         }
-        state = %{state | :back_stack => [frame | state.back_stack]}
+        state = %{state | back_stack: [frame | state.back_stack]}
         {state, s, unquote(ip+1)}
       end
 
       {:commit} -> quote do
         trace(state, unquote(ip), "commit", s)
         [frame | back_stack] = state.back_stack
-        state = %{state | :back_stack => back_stack}
+        state = %{state | back_stack: back_stack}
         {state, s, frame.ip_commit}
       end
 
@@ -101,17 +100,18 @@ defmodule Xpeg do
 
       {:capopen} -> quote do
         trace(state, unquote(ip), "capopen", s)
-        state = %{state | :cap_stack => [{:open, s} | state.cap_stack]}
+        state = %{state | cap_stack: [{:open, s} | state.cap_stack]}
         {state, s, unquote(ip+1)}
       end
 
       {:capclose,} -> quote do
         trace(state, unquote(ip), "capclose", s)
-        state = %{state | :cap_stack => [{:close, s} | state.cap_stack]}
+        state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
         {state, s, unquote(ip+1)}
       end
 
       {:code, code} -> quote do
+        trace(state, unquote(ip), "code", s)
         state = collect_captures(state)
         func = unquote code
         captures = func.(state.captures)
