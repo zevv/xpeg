@@ -152,7 +152,7 @@ defmodule Xpeg do
           :running -> 
             state.func.(state, s, ip)
           _ ->
-            state
+            %{state | match_len: Enum.count(state.s) - Enum.count(s)}
         end
       end
     end
@@ -226,22 +226,25 @@ defmodule Xpeg do
 
 
   def match(func, s) do
+    s = String.to_charlist(s)
     %{
       func: func,
+      s: s,
       status: :running,
       back_stack: [],
       ret_stack: [],
       cap_stack: [],
       captures: [],
       do_trace: false,
+      match_len: 0,
     }
-    |> func.(String.to_charlist(s), 0)
+    |> func.(s, 0)
     |> collect_captures()
   end
 
   def run() do
-    p = patt 2
-    match(p, "a")
+    p = patt "a"[3..5]
+    match(p, "aaa")
   end
 
 end

@@ -24,7 +24,7 @@ defmodule Parsepatt do
   end
 
   # Generic optional
-  def mk_optional(p) do
+  def mk_opt(p) do
     choice_commit(p, length(p) + 2, length(p) + 2)
   end
 
@@ -71,9 +71,9 @@ defmodule Parsepatt do
       {:star, [p]} ->
         mk_star(parse(p))
 
-      # '?' one-or-zero operator
-      {:question, [p]} ->
-        mk_optional(parse(p))
+      # one-or-zero operator
+      {:opt, [p]} ->
+        mk_opt(parse(p))
 
       # '+' one-or-more operator
       {:+, [p]} ->
@@ -87,14 +87,23 @@ defmodule Parsepatt do
       # '!' 'not' operator
       {:!, [p]} ->
         mk_not(parse(p))
+      
+      # '&' 'and-predicate' operator
+      {:&, [p]} ->
+        mk_not(mk_not(parse(p)))
 
       # Charset
       {:{}, p} ->
         [{:set, parse_set(p)}]
-
-      # Repetition count
-      {{:., _, [Access, :get]}, [p, count]} ->
-        List.duplicate(parse(p), count) |> List.flatten()
+      
+      # Repetition count [low..hi]
+      {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
+        p = parse(p)
+        (List.duplicate(p, n1) ++ List.duplicate(mk_opt(p), n2-n1)) |> List.flatten()
+      
+      # Repetition count [n]
+      {{:., _, [Access, :get]}, [p, n]} ->
+        List.duplicate(parse(p), n) |> List.flatten()
 
       # Capture
       {:cap, [p]} ->
@@ -108,7 +117,7 @@ defmodule Parsepatt do
       {:fn, [code]} ->
         [{:code, {:fn, lineinfo, [code]}}]
 
-      e -> raise("XPeg: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n\n")
+      e -> raise("XPeg: #{inspect(lineinfo)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")
     end
   end
 
