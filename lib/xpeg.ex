@@ -208,10 +208,9 @@ defmodule Xpeg do
   defmacro peg(start, [{:do, v}]) do
     %{
       start: start,
-      rules: parse(v)
+      rules: parse(v) |> Map.new
     }
     |> link_grammar
-    #|> IO.inspect
     |> emit
   end
 

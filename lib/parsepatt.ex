@@ -13,11 +13,6 @@ defmodule Parsepatt do
     choice_commit(p1, length(p1) + length(p2) + 2, length(p1) + 2) ++ p2
   end
 
-  # kleene-star-operator for sets make a :span
-  #def mk_star(set: cs) do
-  #  [{:span, cs}]
-  #end
-
   # Generic kleene-star operator
   def mk_star(p) do
     choice_commit(p, 0, length(p) + 2)
@@ -52,20 +47,17 @@ defmodule Parsepatt do
 
       # List of named rules
       {:__block__, ps} ->
-        Enum.reduce(ps, %{}, fn rule, acc ->
-          {name, patt} = parse(rule)
-          Map.put(acc, name, patt)
-        end)
+        Enum.reduce(ps, [], fn rule, acc -> parse(rule) ++ acc end)
 
       # Named rule
       {:<-, [{label, _, nil}, patt]} ->
-        {label, parse(patt) ++ [{:return}]}
+        [{label, parse(patt) ++ [{:return}]}]
       
       {:<-, [label, patt]} ->
-        {label, parse(patt) ++ [{:return}]}
+        [{label, parse(patt) ++ [{:return}]}]
 
       {:<-, [{:__aliases__, _, [label]}, patt]} ->
-        {label, parse(patt) ++ [{:return}]}
+        [{label, parse(patt) ++ [{:return}]}]
 
       # '*' Concatenation
       {:*, [p1, p2]} ->
@@ -120,6 +112,12 @@ defmodule Parsepatt do
     end
   end
 
+
+  def parse(atom) when is_atom(atom) do
+    [{:call, atom}]
+  end
+
+
   # Handler for funny AST in `{}` charsets
   def parse({p1, p2}) do
     case {p1, p2} do
@@ -132,6 +130,7 @@ defmodule Parsepatt do
         [{:set, s}]
     end
   end
+
 
   # Transform AST literals into PEG IR
   def parse(p) do
@@ -157,4 +156,5 @@ defmodule Parsepatt do
     end)
     s
   end
+
 end
