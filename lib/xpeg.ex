@@ -277,15 +277,12 @@ defmodule Xpeg do
         # Objects are represented by an Elixir map
         :obj_pair <- :s * :string * :s * ":" * :value *
           fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
-
         :object <- '{' *
           fn cs -> [%{} | cs ] end *
-          (:obj_pair * star("," * :obj_pair) | :s) *
-          "}"
+          (:obj_pair * star("," * :obj_pair) | :s) * "}"
 
         # Arrays are represented by an Elixir list
         :array_elem <- :value * fn [v, a | cs] -> [[v | a] | cs] end
-
         :array <- "[" *
           fn cs -> [[] | cs] end *
           (:array_elem * star("," * :array_elem) | :s) * "]" * 
@@ -299,8 +296,7 @@ defmodule Xpeg do
       end
 
     s = ~s({"one": "cow", "two": 42, "three": true, "four": [ 5, 6, 7 ], "five": null})
-    r = match(p, s)
-    r.captures == [ %{ "five" => nil, "four" => [5.0, 6.0, 7.0], "one" => "cow", "three" => true, "two" => 42.0 } ]
+    match(p, s)
 
   end
 
