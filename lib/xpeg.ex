@@ -249,54 +249,8 @@ defmodule Xpeg do
 
   def run() do
 
-    p =
-      peg :json do
-
-        # White space
-        :s <- star({' ', '\t', '\r', '\n'})
-        
-        # Basic atoms
-        :bool <- cap("true" | "false") * fn [v|cs] -> [v == "true"|cs] end
-        :null <- "null" * fn cs -> [nil|cs] end
-
-        # Parse strings - needs proper escaping for the capture
-        :xdigit <- {'0'..'9', 'a'..'f', 'A'..'F'}
-        :unicode_escape <- 'u' * :xdigit[4]
-        :escape <- '\\' * ({'"', '\\', '/', 'b', 'f', 'n', 'r', 't'} | :unicode_escape)
-        :string_body <- star(:escape) * star(+({'\x20'..'\x7f'} - {'"'} - {'\\'}) * star(:escape))
-        :string <- '"' * cap(:string_body) * '"'
-
-        # Numbers are converted to Elixir float
-        :minus <- '-'
-        :int_part <- '0' | {'1'..'9'} * star({'0'..'9'})
-        :fract_part <- "." * +{'0'..'9'}
-        :exp_part <- {'e','E'} * opt({'+','-'}) * +{'0'..'9'}
-        :number <- cap(opt(:minus) * :int_part * opt(:fract_part) * opt(:exp_part)) * 
-          fn [v|cs] -> {v,_} = Float.parse(v); [v|cs] end
-
-        # Objects are represented by an Elixir map
-        :obj_pair <- :s * :string * :s * ":" * :value *
-          fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
-        :object <- '{' *
-          fn cs -> [%{} | cs ] end *
-          (:obj_pair * star("," * :obj_pair) | :s) * "}"
-
-        # Arrays are represented by an Elixir list
-        :array_elem <- :value * fn [v, a | cs] -> [[v | a] | cs] end
-        :array <- "[" *
-          fn cs -> [[] | cs] end *
-          (:array_elem * star("," * :array_elem) | :s) * "]" * 
-          fn [a|cs] -> [Enum.reverse(a)|cs] end
-
-        # All possible JSON values
-        :value <- :s * (:number | :string | :object | :array | :bool | :null) * :s
-
-        # And finally, the complete JSON document
-        :json <- :value * !1
-      end
-
-    s = ~s({"one": "cow", "two": 42, "three": true, "four": [ 5, 6, 7 ], "five": null})
-    match(p, s)
+    p = patt "a" * "b"
+    match(p, "ab")
 
   end
 
