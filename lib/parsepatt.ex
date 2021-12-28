@@ -50,14 +50,14 @@ defmodule Parsepatt do
         Enum.reduce(ps, [], fn rule, acc -> parse(rule) ++ acc end)
 
       # Named rule
-      {:<-, [{label, _, nil}, patt]} ->
-        [{label, parse(patt) ++ [{:return}]}]
+      #{:<-, [{label, _, nil}, patt]} ->
+      #  [{label, parse(patt) ++ [{:return}]}]
       
       {:<-, [label, patt]} ->
         [{label, parse(patt) ++ [{:return}]}]
 
-      {:<-, [{:__aliases__, _, [label]}, patt]} ->
-        [{label, parse(patt) ++ [{:return}]}]
+      #{:<-, [{:__aliases__, _, [label]}, patt]} ->
+      #  [{label, parse(patt) ++ [{:return}]}]
 
       # '*' Concatenation
       {:*, [p1, p2]} ->
