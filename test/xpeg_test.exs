@@ -147,7 +147,8 @@ defmodule XpegTest do
         :s <- star({' ', '\t', '\r', '\n'})
         
         # Basic atoms
-        :bool <- cap("true" | "false") * fn [v|cs] -> [v == "true"|cs] end
+        :true <- "true" * fn cs -> [true|cs] end
+        :false <- "true" * fn cs -> [false|cs] end
         :null <- "null" * fn cs -> [nil|cs] end
 
         # Parse strings - needs proper escaping for the capture
@@ -183,7 +184,7 @@ defmodule XpegTest do
           fn [a|cs] -> [Enum.reverse(a)|cs] end
 
         # All possible JSON values
-        :value <- :s * (:number | :string | :object | :array | :bool | :null) * :s
+        :value <- :s * (:number | :string | :object | :array | :true | :false | :null) * :s
 
         # And finally, the complete JSON document
         :json <- :value * !1
