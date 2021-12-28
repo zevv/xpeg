@@ -127,7 +127,7 @@ defmodule XpegTest do
     p = Xpeg.peg :dict do
       :dict <- :pair * star("," * :pair) * !1
       :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
-      :word <- cap(+{'a'..'z'}) 
+      :word <- cap(+{'a'..'z'})
       :number <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v) | cs] end
     end
 
