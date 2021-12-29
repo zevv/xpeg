@@ -4,37 +4,37 @@ defmodule Parsepatt do
   # Emit a choice/commit pair around pattern p; off_back and off_commit are the
   # offsets to the backtrack and commit targets, relative to the commit
   # instruction
-  def choice_commit(p, off_commit, off_back) do
+  defp choice_commit(p, off_commit, off_back) do
     [{:choice, off_back, off_commit}] ++ p ++ [{:commit}]
   end
 
   # Generic ordered choice
-  def mk_choice(p1, p2) do
+  defp mk_choice(p1, p2) do
     choice_commit(p1, length(p1) + length(p2) + 2, length(p1) + 2) ++ p2
   end
 
   # Generic kleene-star operator
-  def mk_star(p) do
+  defp mk_star(p) do
     choice_commit(p, 0, length(p) + 2)
   end
 
   # Generic ! 'not' predicate
-  def mk_not(p) do
+  defp mk_not(p) do
     choice_commit(p, length(p) + 2, length(p) + 3) ++ [{:fail}]
   end
 
   # Generic optional
-  def mk_opt(p) do
+  defp mk_opt(p) do
     choice_commit(p, length(p) + 2, length(p) + 2)
   end
 
   # Minus for sets is the difference between sets
-  def mk_minus([set: cs1], set: cs2) do
+  defp mk_minus([set: cs1], set: cs2) do
     [set: MapSet.difference(cs1, cs2)]
   end
 
   # Generic minus, !p2 * p1
-  def mk_minus(p1, p2) do
+  defp mk_minus(p1, p2) do
     List.flatten([mk_not(p2), p1])
   end
 
@@ -154,7 +154,7 @@ defmodule Parsepatt do
   end
 
   # Transform AST character set to PEG IR. `{'x','y','A'..'F','0'}`
-  def parse_set(ps) do
+  defp parse_set(ps) do
     s = Enum.reduce(ps, MapSet.new(), fn p, s ->
       case p do
         [v] -> MapSet.put(s, v)
