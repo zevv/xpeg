@@ -47,8 +47,9 @@ defmodule ExamplesTest do
         :s <- star({' ', '\t', '\r', '\n'})
 
         # Basic atoms
-        :bool <- cap("true" | "false") * fn [v|cs] -> [v == "true"|cs] end
-        :null <- "null" * fn cs -> [nil|cs] end
+        :true <-  "true"  * fn cs -> [true|cs] end
+        :false <- "false" * fn cs -> [false|cs] end
+        :null <-  "null"  * fn cs -> [nil|cs] end
 
         # Parse strings - needs proper escaping for the capture
         :xdigit <- {'0'..'9', 'a'..'f', 'A'..'F'}
@@ -81,19 +82,19 @@ defmodule ExamplesTest do
           fn [a|cs] -> [Enum.reverse(a)|cs] end
 
         # All possible JSON values
-        :value <- :s * (:number | :string | :object | :array | :bool | :null) * :s
+        :value <- :s * (:number | :string | :object | :array | :true | :false | :null) * :s
 
         # The toplevel json document is a value with no other trailing characters
         :json <- :value * !1
       end
 
-    s = ~s({"one": "cow", "two": 42, "three": true, "four": [ 5, 6, 7 ], "five": null})
+    s = ~s({"one": "cow", "two": 42, "three": true, "four": [ 5, 6, false ], "five": null})
     r = match(p, s)
 
     assert(r.captures == [
       %{
         "five" => nil,
-        "four" => [5.0, 6.0, 7.0],
+        "four" => [5.0, 6.0, false],
         "one" => "cow",
         "three" => true,
         "two" => 42.0
