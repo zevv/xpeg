@@ -25,10 +25,10 @@ defmodule Xpeg do
 
   def collect_captures(stack, acc, caps) do
     case {stack, acc} do
-      {[ {:open, s} | stack], _} ->
-        collect_captures(stack, [ {:open, s} | acc], caps)
-      {[ {:close, sc} | stack], [{:open, so} | acc]} ->
-        len = Enum.count(so) - Enum.count(sc)
+      {[ {:open, s, si} | stack], _} ->
+        collect_captures(stack, [ {:open, s, si} | acc], caps)
+      {[ {:close, sc, sic} | stack], [{:open, so, sio} | acc]} ->
+        len = sic - sio
         cap = to_string(Enum.take(so, len))
         collect_captures(stack, acc, [cap | caps])
       {_, acc} ->
@@ -57,35 +57,35 @@ defmodule Xpeg do
     case inst do
 
       {:nop} -> quote do
-        {state, s, unquote(ip+1)}
+        {state, s, si, unquote(ip+1)}
       end
 
       {:any, n} -> quote do
         if Enum.count(s) >= unquote(n) do
-          {state, Enum.drop(s, unquote(n)), unquote(ip+1)}
+          {state, Enum.drop(s, unquote(n)), si+unquote(n), unquote(ip+1)}
         else
-          {state, s, :fail}
+          {state, s, si, :fail}
         end
       end
 
       {:chr, c} -> quote do
         case s do
-          [unquote(c) | s] -> {state, s, unquote(ip+1)}
-          _ -> {state, s, :fail}
+          [unquote(c) | s] -> {state, s, si+1, unquote(ip+1)}
+          _ -> {state, s, si, :fail}
         end
       end
 
       {:set, cs} -> quote do
         case s do
-          [c | s ] when c in unquote(MapSet.to_list(cs)) -> {state, s, unquote(ip+1)}
-          _ -> {state, s, :fail}
+          [c | s ] when c in unquote(MapSet.to_list(cs)) -> {state, s, si+1, unquote(ip+1)}
+          _ -> {state, s, si, :fail}
         end
       end
 
       {:return} -> quote do
         case state.ret_stack do
-          [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
-          [] -> {%{state | status: :ok}, s, ip}
+          [ip | rest] -> {%{state | ret_stack: rest}, s, si, ip}
+          [] -> {%{state | status: :ok}, s, si, ip}
         end
       end
 
@@ -95,31 +95,32 @@ defmodule Xpeg do
           ip_commit: ip + unquote(off_commit),
           ret_stack: state.ret_stack,
           cap_stack: state.cap_stack,
-          s: s
+          s: s,
+          si: si,
         }
         state = %{state | back_stack: [frame | state.back_stack]}
-        {state, s, unquote(ip+1)}
+        {state, s, si, unquote(ip+1)}
       end
 
       {:commit} -> quote do
         [frame | back_stack] = state.back_stack
         state = %{state | back_stack: back_stack}
-        {state, s, frame.ip_commit}
+        {state, s, si, frame.ip_commit}
       end
 
       {:call, addr} -> quote do
         state = %{state | ret_stack: [ip+1 | state.ret_stack]}
-        {state, s, unquote(addr)}
+        {state, s, si, unquote(addr)}
       end
 
       {:capopen} -> quote do
-        state = %{state | cap_stack: [{:open, s} | state.cap_stack]}
-        {state, s, unquote(ip+1)}
+        state = %{state | cap_stack: [{:open, s, si} | state.cap_stack]}
+        {state, s, si, unquote(ip+1)}
       end
 
       {:capclose,} -> quote do
-        state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
-        {state, s, unquote(ip+1)}
+        state = %{state | cap_stack: [{:close, s, si} | state.cap_stack]}
+        {state, s, si, unquote(ip+1)}
       end
 
       {:code, code} -> quote do
@@ -127,7 +128,7 @@ defmodule Xpeg do
         func = unquote code
         captures = func.(state.captures)
         state = %{state | captures: captures}
-        {state, s, unquote(ip+1)}
+        {state, s, si, unquote(ip+1)}
       end
 
       {:fail} -> quote do
@@ -138,10 +139,10 @@ defmodule Xpeg do
               ret_stack: frame.ret_stack,
               cap_stack: frame.cap_stack
             }
-            {state, frame.s, frame.ip_back}
+            {state, frame.s, frame.si, frame.ip_back}
           [] ->
             state = %{state | status: :error}
-            {state, s, 0}
+            {state, s, si, 0}
         end
       end
     end
@@ -165,13 +166,13 @@ defmodule Xpeg do
             end)
 
     f = quote do
-      fn state, s, ip ->
-        {state, s, ip} = case ip do
+      fn state, s, si, ip ->
+        {state, s, si, ip} = case ip do
           unquote(cases)
         end
         case state.status do
           :running ->
-            state.func.(state, s, ip)
+            state.func.(state, s, si, ip)
           _ ->
             %{state | match_len: Enum.count(state.s) - Enum.count(s)}
         end
@@ -274,7 +275,7 @@ defmodule Xpeg do
       captures: [],
       match_len: 0,
     }
-    {time, state} = :timer.tc fn -> func.(state, s, 0) end
+    {time, state} = :timer.tc fn -> func.(state, s, 0, 0) end
     state = %{state | time: time/1.0e6}
     collect_captures(state)
   end
