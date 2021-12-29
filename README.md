@@ -1,4 +1,7 @@
-# Xpeg
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Stability: experimental](https://img.shields.io/badge/stability-stable-green.svg)
+
+![XPeg](xpeg.png)
 
 Beware: this is proof-of-concept alpha quality code.
 

@@ -14,7 +14,8 @@ defmodule Xpeg.MixProject do
         links: %{ "GitHub" => "https://github.com/zevv/xpeg" },
       ],
       docs: [
-        extras: ["README.md"]
+        extras: ["README.md"],
+        logo: "xpeg.png",
       ]
     ]
   end
