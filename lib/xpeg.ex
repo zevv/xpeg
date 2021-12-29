@@ -51,7 +51,7 @@ defmodule Xpeg do
     if state.do_trace do
       ip = to_string(ip) |> String.pad_trailing(5, " ")
       cmd = cmd |> String.pad_trailing(18, " ")
-      s = to_string(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
+      s = inspect(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
       IO.puts("   #{ip} | #{s} | #{cmd} | ")
     end
   end
@@ -74,7 +74,7 @@ defmodule Xpeg do
       end
 
       {:chr, c} -> quote do
-        Xpeg.trace(state, unquote(ip), "chr #{unquote(c)}", s)
+        Xpeg.trace(state, unquote(ip), "chr #{inspect(<<unquote(c)::utf8>>)}", s)
         case s do
           [unquote(c) | s] -> {state, s, unquote(ip+1)}
           _ -> {state, s, :fail}
@@ -263,7 +263,7 @@ defmodule Xpeg do
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      do_trace: false,
+      do_trace: true,
       match_len: 0,
     }
     |> func.(s, 0)
@@ -271,7 +271,6 @@ defmodule Xpeg do
   end
 
   def run() do
-
   end
 
 end

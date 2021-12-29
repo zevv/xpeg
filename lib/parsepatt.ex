@@ -127,16 +127,13 @@ defmodule Parsepatt do
   end
 
 
-  # Handler for funny AST in `{}` charsets
+  # Charsets
   def parse({p1, p2}) do
-    case {p1, p2} do
-      {[a], [b]} ->
-        [{:set, MapSet.new([a, b])}]
-      {{:.., _, [[lo1], [hi1]]}, {:.., _, [[lo2], [hi2]]}} ->
-        s = MapSet.new()
-            |> MapSet.union(Range.new(lo1, hi1) |> MapSet.new())
-            |> MapSet.union(Range.new(lo2, hi2) |> MapSet.new())
-        [{:set, s}]
+    case {parse(p1), parse(p2)} do
+      {[{:chr, a}], [{:chr,b}]} -> [{:set, MapSet.new([a,b])}]
+      {[{:set, a}], [{:set, b}]} -> [{:set, MapSet.union(a, b)}]
+      {[{:set, a}], [{:chr, b}]} -> [{:set, MapSet.put(a, b)}]
+      {[{:chr, a}], [{:set, b}]} -> [{:set, MapSet.put(b, a)}]
     end
   end
 
