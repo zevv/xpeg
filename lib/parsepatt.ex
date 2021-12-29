@@ -13,9 +13,13 @@ defmodule Parsepatt do
     choice_commit(p1, length(p1) + length(p2) + 2, length(p1) + 2) ++ p2
   end
 
-  # Generic kleene-star operator
+
+  # kleene-star operator
   defp mk_star(p) do
-    choice_commit(p, 0, length(p) + 2)
+    case p do
+      [{:set, cs}] -> [{:span, cs}]
+      _ -> choice_commit(p, 0, length(p) + 2)
+    end
   end
 
   # Generic ! 'not' predicate

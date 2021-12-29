@@ -82,6 +82,11 @@ defmodule Xpeg do
         end
       end
 
+      {:span, cs} -> quote do
+        {s1, s2} = Enum.split_while(s, fn c -> c in unquote(MapSet.to_list(cs)) end)
+        {state, s2, si+Enum.count(s1), unquote(ip)+1}
+      end
+
       {:return} -> quote do
         case state.ret_stack do
           [ip | rest] -> {%{state | ret_stack: rest}, s, si, ip}
@@ -281,11 +286,11 @@ defmodule Xpeg do
 
   def run() do
 
-    p = peg :flop, [debug: true, trace: false, dump_ir: false] do
-      :flop <- "a" * +("b" | "c") * "d"
+    p = peg :flop, [debug: false, trace: true, dump_ir: true] do
+      :flop <- cap(star({'a'..'f'})) * cap(+1)
     end
 
-    match(p, "abcd")
+    match(p, "abcdefghi")
   end
 
 end
