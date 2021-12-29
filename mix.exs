@@ -5,9 +5,14 @@ defmodule Xpeg.MixProject do
     [
       app: :xpeg,
       version: "0.1.0",
+      description: "Native Elixir PEG (Parsing Expression Grammars) string matching library",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      package: [
+        licenses: ["MIT"],
+        links: %{ "GitHub" => "https://github.com/zevv/xpeg" },
+      ]
     ]
   end
 
