@@ -263,7 +263,7 @@ defmodule Xpeg do
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      do_trace: true,
+      do_trace: false,
       match_len: 0,
     }
     |> func.(s, 0)

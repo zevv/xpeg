@@ -122,11 +122,6 @@ defmodule Parsepatt do
   end
 
 
-  def parse(atom) when is_atom(atom) do
-    [{:call, atom}]
-  end
-
-
   # Charsets
   def parse({p1, p2}) do
     case {parse(p1), parse(p2)} do
@@ -142,7 +137,7 @@ defmodule Parsepatt do
   def parse(p) do
     case p do
       0 -> [{:nop}]
-      v when is_atom(v) -> v
+      v when is_atom(v) -> [{:call, v}]
       v when is_number(v) -> [{:any, v}]
       v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
       [v] -> [{:chr, v}]
