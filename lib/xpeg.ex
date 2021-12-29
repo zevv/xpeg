@@ -249,8 +249,16 @@ defmodule Xpeg do
 
   def run() do
 
-    p = patt "a" * "b"
-    match(p, "ab")
+    p = peg :exp do
+      :exp     <- :term   * star(:exp_op)
+      :term    <- :factor * star(:term_op)
+      :factor  <- :number | "(" * :exp * ")"
+      :number  <- cap(+{'0'..'9'})
+      :term_op <- cap({'*','/'}) * :factor * fn [b,op,a|cs] -> [{op,a,b}|cs] end
+      :exp_op  <- cap({'+','-'}) * :term   * fn [b,op,a|cs] -> [{op,a,b}|cs] end
+    end
+
+    match(p, "1+(2-3*4)/5")
 
   end
 
