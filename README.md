@@ -24,7 +24,7 @@ Here is a simple example showing the power of XPeg: The macro `peg` compiles a
 grammar definition into a `parser` functiion, which is used to match a string and
 place the key-value pairs into a list of tuples:
 
-```nim
+```elixir
 p = Xpeg.peg :dict do
   :dict <- :pair * star("," * :pair) * !1
   :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end

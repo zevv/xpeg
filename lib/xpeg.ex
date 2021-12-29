@@ -1,6 +1,29 @@
 
 defmodule Xpeg do
 
+  @moduledoc """
+
+  XPeg is a pure Elixir pattern matching library. It provides macros to compile
+  patterns and grammars (PEGs) to Elixir function which will parse a string and
+  collect selected parts of the input. PEGs are not unlike regular expressions,
+  but offer more power and flexibility, and have less ambiguities. (More about 
+  PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
+
+  Some use cases where XPeg is useful are configuration or data file parsers,
+  robust protocol implementations, input validation, lexing of programming
+  languages or domain specific languages.
+
+    p = Xpeg.peg :dict do
+      :dict <- :pair * star("," * :pair) * !1
+      :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
+      :word <- cap(+{'a'..'z'})
+      :number <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v) | cs] end
+    end
+
+    Xpeg.match(p, "grass=4,horse=1,star=2")
+
+"""
+
   def collect_captures(stack, acc, caps) do
     case {stack, acc} do
       {[ {:open, s} | stack], _} ->
