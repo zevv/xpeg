@@ -263,9 +263,10 @@ defmodule Xpeg do
 
   def match(func, s) do
     s = String.to_charlist(s)
-    %{
+    state = %{
       func: func,
       s: s,
+      time: 0,
       status: :running,
       back_stack: [],
       ret_stack: [],
@@ -273,13 +274,14 @@ defmodule Xpeg do
       captures: [],
       match_len: 0,
     }
-    |> func.(s, 0)
-    |> collect_captures()
+    {time, state} = :timer.tc fn -> func.(state, s, 0) end
+    state = %{state | time: time/1.0e6}
+    collect_captures(state)
   end
 
   def run() do
 
-    p = peg :flop, [debug: false, trace: true, dump_ir: false] do
+    p = peg :flop, [debug: true, trace: false, dump_ir: false] do
       :flop <- "a" * +("b" | "c") * "d"
     end
 
