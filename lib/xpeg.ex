@@ -266,7 +266,6 @@ defmodule Xpeg do
     s = String.to_charlist(s)
     state = %{
       func: func,
-      s: s,
       time: 0,
       status: :running,
       back_stack: [],
