@@ -20,7 +20,7 @@ defmodule Xpeg do
                             |> Xpeg.collect_captures([], [])
     %{state |
       cap_stack: cap_stack,
-      captures: captures ++ state.captures 
+      captures: captures ++ state.captures
     }
   end
 
@@ -149,12 +149,12 @@ defmodule Xpeg do
             end)
 
     quote do
-      fn state, s, ip -> 
+      fn state, s, ip ->
         {state, s, ip} = case ip do
           unquote(cases)
         end
         case state.status do
-          :running -> 
+          :running ->
             state.func.(state, s, ip)
           _ ->
             %{state | match_len: Enum.count(state.s) - Enum.count(s)}
@@ -163,7 +163,7 @@ defmodule Xpeg do
     end
     #|> tap(&IO.puts(Macro.to_string(&1)))
   end
- 
+
 
   defp link_one(program, rules, name) do
     instructions = rules[name]
