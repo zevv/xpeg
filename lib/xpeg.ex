@@ -1,4 +1,3 @@
-
 defmodule Xpeg do
 
   @moduledoc """
@@ -47,21 +46,17 @@ defmodule Xpeg do
     }
   end
 
-  def trace(state, ip, cmd, s) do
-    if state.do_trace do
-      ip = to_string(ip) |> String.pad_trailing(5, " ")
-      cmd = cmd |> String.pad_trailing(18, " ")
-      s = inspect(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
-      IO.puts("   #{ip} | #{s} | #{cmd} | ")
-    end
+  def trace(ip, cmd, s) do
+    ip = to_string(ip) |> String.pad_leading(4, " ")
+    s = inspect(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
+    IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
-  defp emit_inst(ip, inst) do
+  defp emit_inst(ip, inst, options) do
 
     case inst do
 
       {:nop} -> quote do
-        Xpeg.trace(state, unquote(ip), "nop", s)
         {state, s, unquote(ip+1)}
       end
 
@@ -74,7 +69,6 @@ defmodule Xpeg do
       end
 
       {:chr, c} -> quote do
-        Xpeg.trace(state, unquote(ip), "chr #{inspect(<<unquote(c)::utf8>>)}", s)
         case s do
           [unquote(c) | s] -> {state, s, unquote(ip+1)}
           _ -> {state, s, :fail}
@@ -82,7 +76,6 @@ defmodule Xpeg do
       end
 
       {:set, cs} -> quote do
-        Xpeg.trace(state, unquote(ip), "set", s)
         case s do
           [c | s ] when c in unquote(MapSet.to_list(cs)) -> {state, s, unquote(ip+1)}
           _ -> {state, s, :fail}
@@ -90,7 +83,6 @@ defmodule Xpeg do
       end
 
       {:return} -> quote do
-        Xpeg.trace(state, unquote(ip), "return #{inspect(state.ret_stack)}", s)
         case state.ret_stack do
           [ip | rest] -> {%{state | ret_stack: rest}, s, ip}
           [] -> {%{state | status: :ok}, s, ip}
@@ -98,7 +90,6 @@ defmodule Xpeg do
       end
 
       {:choice, off_back, off_commit} -> quote do
-        Xpeg.trace(state, unquote(ip), "choice #{unquote(off_back)} #{unquote(off_commit)}", s)
         frame = %{
           ip_back: ip + unquote(off_back),
           ip_commit: ip + unquote(off_commit),
@@ -111,32 +102,27 @@ defmodule Xpeg do
       end
 
       {:commit} -> quote do
-        Xpeg.trace(state, unquote(ip), "commit", s)
         [frame | back_stack] = state.back_stack
         state = %{state | back_stack: back_stack}
         {state, s, frame.ip_commit}
       end
 
       {:call, addr} -> quote do
-        Xpeg.trace(state, unquote(ip), "call #{unquote addr}", s)
         state = %{state | ret_stack: [ip+1 | state.ret_stack]}
         {state, s, unquote(addr)}
       end
 
       {:capopen} -> quote do
-        Xpeg.trace(state, unquote(ip), "capopen", s)
         state = %{state | cap_stack: [{:open, s} | state.cap_stack]}
         {state, s, unquote(ip+1)}
       end
 
       {:capclose,} -> quote do
-        Xpeg.trace(state, unquote(ip), "capclose", s)
         state = %{state | cap_stack: [{:close, s} | state.cap_stack]}
         {state, s, unquote(ip+1)}
       end
 
       {:code, code} -> quote do
-        Xpeg.trace(state, unquote(ip), "code", s)
         state = Xpeg.collect_captures(state)
         func = unquote code
         captures = func.(state.captures)
@@ -145,7 +131,6 @@ defmodule Xpeg do
       end
 
       {:fail} -> quote do
-        Xpeg.trace(state, unquote(ip), "fail", s)
         case state.back_stack do
           [frame | back_stack] ->
             state = %{state |
@@ -163,15 +148,23 @@ defmodule Xpeg do
   end
 
 
-  defp emit(program) do
+  defp emit(program, options \\ []) do
 
     cases = program.instructions
             |> Enum.map(fn {ip, inst} ->
-              body = emit_inst(ip, inst)
+              body = emit_inst(ip, inst, options)
+              body = if options[:trace] do
+                trace = quote do
+                  Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
+                end
+                {:__block__, [], [trace, body]}
+              else
+                body
+              end
               {:->, [], [[ip], body] }
             end)
 
-    quote do
+    f = quote do
       fn state, s, ip ->
         {state, s, ip} = case ip do
           unquote(cases)
@@ -184,7 +177,12 @@ defmodule Xpeg do
         end
       end
     end
-    #|> tap(&IO.puts(Macro.to_string(&1)))
+
+    if options[:debug] do
+      IO.puts(Macro.to_string(f))
+    end
+    
+    f
   end
 
 
@@ -212,7 +210,10 @@ defmodule Xpeg do
   end
 
 
-  defp link_grammar(grammar) do
+  defp link_grammar(grammar, options \\ []) do
+    if options[:dump_ir] do
+      IO.inspect(grammar)
+    end
     program = %{
       instructions: [],
       symtab: %{}
@@ -237,8 +238,16 @@ defmodule Xpeg do
       rules: Parsepatt.parse(v) |> Map.new
     }
     |> link_grammar
-    #|> IO.inspect
     |> emit
+  end
+  
+  defmacro peg(start, options, [{:do, v}]) do
+    %{
+      start: start,
+      rules: Parsepatt.parse(v) |> Map.new
+    }
+    |> link_grammar(options)
+    |> emit(options)
   end
 
 
@@ -248,7 +257,6 @@ defmodule Xpeg do
       rules: %{ anon: Parsepatt.parse(v) ++ [{:return}]}
     }
     |> link_grammar
-    #|> IO.inspect
     |> emit
   end
 
@@ -263,7 +271,6 @@ defmodule Xpeg do
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      do_trace: false,
       match_len: 0,
     }
     |> func.(s, 0)
@@ -271,6 +278,12 @@ defmodule Xpeg do
   end
 
   def run() do
+
+    p = peg :flop, [debug: false, trace: true, dump_ir: false] do
+      :flop <- "a" * +("b" | "c") * "d"
+    end
+
+    match(p, "abcd")
   end
 
 end
