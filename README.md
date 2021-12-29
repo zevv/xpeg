@@ -44,6 +44,9 @@ Proper documentation will be added, for now please refer to the documentation
 of [NPeg](https://github.com/zevv/npeg), the Nim implementation of a very
 similar parser generator.
 
+Some examples can be found in [examples_test.exs](/test/examples_test.exs)
+
+
 
 ## Installation
 
