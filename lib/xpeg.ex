@@ -253,7 +253,7 @@ defmodule Xpeg do
       :exp     <- :term   * star(:exp_op)
       :term    <- :factor * star(:term_op)
       :factor  <- :number | "(" * :exp * ")"
-      :number  <- cap(+{'0'..'9'})
+      :number  <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v)|cs] end
       :term_op <- cap({'*','/'}) * :factor * fn [b,op,a|cs] -> [{op,a,b}|cs] end
       :exp_op  <- cap({'+','-'}) * :term   * fn [b,op,a|cs] -> [{op,a,b}|cs] end
     end
