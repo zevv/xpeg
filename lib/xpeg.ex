@@ -272,12 +272,6 @@ defmodule Xpeg do
 
   def run() do
 
-    p = peg :list do
-      :list <- :word * star( "," * :word )
-      :word <- cap(+{'0'..'9'}) * fn [v|cs] -> String.to_integer(v)|cs] end
-    end
-
-    match(p, "123,42,31415")
   end
 
 end
