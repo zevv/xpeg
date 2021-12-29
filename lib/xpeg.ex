@@ -174,7 +174,7 @@ defmodule Xpeg do
           :running ->
             state.func.(state, s, si, ip)
           _ ->
-            %{state | match_len: Enum.count(state.s) - Enum.count(s)}
+            %{state | match_len: si}
         end
       end
     end
