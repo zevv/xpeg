@@ -340,7 +340,7 @@ defmodule Xpeg do
     %{
       captures: state(ctx, :captures),
       status: state(ctx, :status),
-      time: time,
+      time: time / 1.0e6,
       match_len: match_len
     }
   end
