@@ -126,6 +126,11 @@ defmodule Xpeg do
           {state, s, si, unquote(addr)}
         end
 
+      {:jump, addr} ->
+        quote do
+          {state, s, si, unquote(addr)}
+        end
+
       {:capopen} ->
         quote do
           state = %{state | cap_stack: [{:open, s, si} | state.cap_stack]}
@@ -254,23 +259,37 @@ defmodule Xpeg do
 
     program = link_one(program, grammar.rules, grammar.start)
 
-    program =
-      Map.put(
-        program,
-        :instructions,
-        Enum.with_index(program.instructions, fn inst, ip ->
-          case inst do
-            {:call, name} ->
-              {ip, {:call, program.symtab[name]}}
+    is = program.instructions
+         |> peephole()
+         |> resolve_addresses(program)
 
-            inst ->
-              {ip, inst}
-          end
-        end)
-      )
+    is = is ++ [{:fail, {:fail}}]
 
-    program = %{program | instructions: program.instructions ++ [{:fail, {:fail}}]}
+    program = %{program | instructions: is}
     program
+  end
+
+  def peephole(insts) do
+    case insts do
+      # tail call optimization
+      [{:call, name}, {:return} | rest] ->
+        IO.puts("tailcall")
+        [{:jump, name}, {:nop} | peephole(rest)]
+      [a | rest] -> [a | peephole(rest)]
+      e -> e
+    end
+  end
+
+  defp resolve_addresses(insts, program) do
+    Enum.with_index(insts, fn inst, ip ->
+      case inst do
+        {op, name} when op in [:call, :jump] ->
+          {ip, {op, program.symtab[name]}}
+
+        inst ->
+          {ip, inst}
+      end
+    end)
   end
 
   def make(start, rules, options) do
@@ -300,7 +319,7 @@ defmodule Xpeg do
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      match_len: 0
+      match_len: 0,
     }
 
     s = String.to_charlist(s)
@@ -318,6 +337,7 @@ defmodule Xpeg do
 
     match(p, "abcdefghi")
   end
+
 end
 
 # set ft=elixir
