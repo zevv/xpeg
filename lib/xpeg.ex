@@ -8,7 +8,7 @@ defmodule Xpeg do
     ret_stack: [],
     captures: [],
     cap_stack: [],
-    status: :running,
+    status: :running
   )
 
   @moduledoc """
@@ -49,11 +49,12 @@ defmodule Xpeg do
     end
   end
 
-  def collect_captures(cap_stack) do
+  def collect_captures(ctx) do
     {cap_stack, captures} =
-      cap_stack
+      state(ctx, :cap_stack)
       |> Enum.reverse()
       |> Xpeg.collect_captures([], [])
+    state(ctx, cap_stack: cap_stack, captures: captures ++ state(ctx, :captures))
   end
 
   def trace(ip, cmd, s) do
@@ -163,9 +164,7 @@ defmodule Xpeg do
 
       {:code, code} ->
         quote do
-          cap_stack = Xpeg.state(ctx, :cap_stack)
-          {cap_stack, captures} = Xpeg.collect_captures(cap_stack)
-          ctx = Xpeg.state(ctx, cap_stack: cap_stack, captures: captures ++ Xpeg.state(ctx, :captures))
+          ctx = Xpeg.collect_captures(ctx)
           func = unquote(code)
           captures = func.(Xpeg.state(ctx, :captures))
           ctx = Xpeg.state(ctx, captures: captures)
@@ -174,13 +173,12 @@ defmodule Xpeg do
 
       {:fail} ->
         quote do
-          back_stack = Xpeg.state(ctx, :back_stack)
-          case back_stack do
+          case Xpeg.state(ctx, :back_stack) do
             [frame | back_stack] ->
               ctx = Xpeg.state(ctx,
                 back_stack: back_stack,
                 ret_stack: frame.ret_stack,
-                cap_stack: frame.cap_stack,
+                cap_stack: frame.cap_stack
               )
 
               {ctx, frame.s, frame.si, frame.ip_back}
@@ -295,7 +293,6 @@ defmodule Xpeg do
     case insts do
       # tail call optimization
       [{:call, name}, {:return} | rest] ->
-        IO.puts("tailcall")
         [{:jump, name}, {:nop} | peephole(rest)]
       [a | rest] -> [a | peephole(rest)]
       e -> e
@@ -339,9 +336,9 @@ defmodule Xpeg do
       func.(ctx, String.to_charlist(s), 0, 0)
     end)
 
-    {_, captures} = collect_captures(state(ctx, :cap_stack))
+    ctx = collect_captures(ctx)
     %{
-      captures: captures ++ state(ctx, :captures),
+      captures: state(ctx, :captures),
       status: state(ctx, :status),
       time: time,
       match_len: match_len
