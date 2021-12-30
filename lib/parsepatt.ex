@@ -30,8 +30,11 @@ defmodule Parsepatt do
   end
 
   # Minus for sets is the difference between sets
-  defp mk_minus([set: cs1], set: cs2) do
-    [set: MapSet.difference(cs1, cs2)]
+  defp mk_minus([{:set, cs1}], c2) do
+    case c2 do
+      [{:set, cs}] -> [{:set, Enum.filter(cs1, &(&1 not in cs))}]
+      [{:chr, c}] -> [{:set, Enum.filter(cs1, &(&1 != c))}]
+    end
   end
 
   # Generic minus, !p2 * p1
@@ -92,10 +95,10 @@ defmodule Parsepatt do
       {:{}, ps} ->
         [
           {:set,
-           Enum.reduce(ps, MapSet.new(), fn p, set ->
+           Enum.reduce(ps, [], fn p, set ->
              case p do
-               [v] -> MapSet.put(set, v)
-               {:.., _, [[lo], [hi]]} -> MapSet.union(set, MapSet.new(lo..hi))
+               [v] -> [v | set]
+               {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
              end
            end)}
         ]

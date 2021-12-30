@@ -126,6 +126,7 @@ defmodule XpegTest do
   test "-: difference" do
     run(patt("abcd" - "abcdef"), "abcdefgh", :error)
     run(patt("abcd" - "abcdf"), "abcdefgh")
+    run(patt({'a','b','c'} - {'a'}), "a", :error)
   end
 
   test "Misc combos" do

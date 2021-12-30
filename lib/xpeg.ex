@@ -90,14 +90,14 @@ defmodule Xpeg do
       {:set, cs} ->
         quote do
           case s do
-            [c | s] when c in unquote(MapSet.to_list(cs)) -> {ctx, s, si + 1, unquote(ip + 1)}
+            [c | s] when c in unquote(cs) -> {ctx, s, si + 1, unquote(ip + 1)}
             _ -> {ctx, s, si, :fail}
           end
         end
 
       {:span, cs} ->
         quote do
-          {s1, s2} = Enum.split_while(s, fn c -> c in unquote(MapSet.to_list(cs)) end)
+          {s1, s2} = Enum.split_while(s, fn c -> c in unquote(cs) end)
           {ctx, s2, si + Enum.count(s1), unquote(ip) + 1}
         end
 
