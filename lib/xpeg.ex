@@ -1,49 +1,49 @@
 defmodule Xpeg do
-
   @moduledoc """
 
-  XPeg is a pure Elixir pattern matching library. It provides macros to compile
-  patterns and grammars (PEGs) to Elixir function which will parse a string and
-  collect selected parts of the input. PEGs are not unlike regular expressions,
-  but offer more power and flexibility, and have less ambiguities. (More about 
-  PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
+    XPeg is a pure Elixir pattern matching library. It provides macros to compile
+    patterns and grammars (PEGs) to Elixir function which will parse a string and
+    collect selected parts of the input. PEGs are not unlike regular expressions,
+    but offer more power and flexibility, and have less ambiguities. (More about 
+    PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
-  Some use cases where XPeg is useful are configuration or data file parsers,
-  robust protocol implementations, input validation, lexing of programming
-  languages or domain specific languages.
+    Some use cases where XPeg is useful are configuration or data file parsers,
+    robust protocol implementations, input validation, lexing of programming
+    languages or domain specific languages.
 
-    p = Xpeg.peg :dict do
-      :dict <- :pair * star("," * :pair) * !1
-      :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
-      :word <- cap(+{'a'..'z'})
-      :number <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v) | cs] end
-    end
+      p = Xpeg.peg :dict do
+        :dict <- :pair * star("," * :pair) * !1
+        :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
+        :word <- cap(+{'a'..'z'})
+        :number <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v) | cs] end
+      end
 
-    Xpeg.match(p, "grass=4,horse=1,star=2")
+      Xpeg.match(p, "grass=4,horse=1,star=2")
 
-"""
+  """
 
   def collect_captures(stack, acc, caps) do
     case {stack, acc} do
-      {[ {:open, s, si} | stack], _} ->
-        collect_captures(stack, [ {:open, s, si} | acc], caps)
-      {[ {:close, sc, sic} | stack], [{:open, so, sio} | acc]} ->
+      {[{:open, s, si} | stack], _} ->
+        collect_captures(stack, [{:open, s, si} | acc], caps)
+
+      {[{:close, _sc, sic} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
         cap = to_string(Enum.take(so, len))
         collect_captures(stack, acc, [cap | caps])
+
       {_, acc} ->
         {acc, caps}
     end
   end
 
   def collect_captures(state) do
-    {cap_stack, captures} = state.cap_stack
-                            |> Enum.reverse
-                            |> Xpeg.collect_captures([], [])
-    %{state |
-      cap_stack: cap_stack,
-      captures: captures ++ state.captures
-    }
+    {cap_stack, captures} =
+      state.cap_stack
+      |> Enum.reverse()
+      |> Xpeg.collect_captures([], [])
+
+    %{state | cap_stack: cap_stack, captures: captures ++ state.captures}
   end
 
   def trace(ip, cmd, s) do
@@ -52,211 +52,244 @@ defmodule Xpeg do
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
-  defp emit_inst(ip, inst, options) do
-
+  defp emit_inst(ip, inst, _options) do
     case inst do
-
-      {:nop} -> quote do
-        {state, s, si, unquote(ip+1)}
-      end
-
-      {:any, n} -> quote do
-        if Enum.count(s) >= unquote(n) do
-          {state, Enum.drop(s, unquote(n)), si+unquote(n), unquote(ip+1)}
-        else
-          {state, s, si, :fail}
+      {:nop} ->
+        quote do
+          {state, s, si, unquote(ip + 1)}
         end
-      end
 
-      {:chr, c} -> quote do
-        case s do
-          [unquote(c) | s] -> {state, s, si+1, unquote(ip+1)}
-          _ -> {state, s, si, :fail}
+      {:any, n} ->
+        quote do
+          if Enum.count(s) >= unquote(n) do
+            {state, Enum.drop(s, unquote(n)), si + unquote(n), unquote(ip + 1)}
+          else
+            {state, s, si, :fail}
+          end
         end
-      end
 
-      {:set, cs} -> quote do
-        case s do
-          [c | s ] when c in unquote(MapSet.to_list(cs)) -> {state, s, si+1, unquote(ip+1)}
-          _ -> {state, s, si, :fail}
+      {:chr, c} ->
+        quote do
+          case s do
+            [unquote(c) | s] -> {state, s, si + 1, unquote(ip + 1)}
+            _ -> {state, s, si, :fail}
+          end
         end
-      end
 
-      {:span, cs} -> quote do
-        {s1, s2} = Enum.split_while(s, fn c -> c in unquote(MapSet.to_list(cs)) end)
-        {state, s2, si+Enum.count(s1), unquote(ip)+1}
-      end
-
-      {:return} -> quote do
-        case state.ret_stack do
-          [ip | rest] -> {%{state | ret_stack: rest}, s, si, ip}
-          [] -> {%{state | status: :ok}, s, si, ip}
+      {:set, cs} ->
+        quote do
+          case s do
+            [c | s] when c in unquote(MapSet.to_list(cs)) -> {state, s, si + 1, unquote(ip + 1)}
+            _ -> {state, s, si, :fail}
+          end
         end
-      end
 
-      {:choice, off_back, off_commit} -> quote do
-        frame = %{
-          ip_back: ip + unquote(off_back),
-          ip_commit: ip + unquote(off_commit),
-          ret_stack: state.ret_stack,
-          cap_stack: state.cap_stack,
-          s: s,
-          si: si,
-        }
-        state = %{state | back_stack: [frame | state.back_stack]}
-        {state, s, si, unquote(ip+1)}
-      end
-
-      {:commit} -> quote do
-        [frame | back_stack] = state.back_stack
-        state = %{state | back_stack: back_stack}
-        {state, s, si, frame.ip_commit}
-      end
-
-      {:call, addr} -> quote do
-        state = %{state | ret_stack: [ip+1 | state.ret_stack]}
-        {state, s, si, unquote(addr)}
-      end
-
-      {:capopen} -> quote do
-        state = %{state | cap_stack: [{:open, s, si} | state.cap_stack]}
-        {state, s, si, unquote(ip+1)}
-      end
-
-      {:capclose,} -> quote do
-        state = %{state | cap_stack: [{:close, s, si} | state.cap_stack]}
-        {state, s, si, unquote(ip+1)}
-      end
-
-      {:code, code} -> quote do
-        state = Xpeg.collect_captures(state)
-        func = unquote code
-        captures = func.(state.captures)
-        state = %{state | captures: captures}
-        {state, s, si, unquote(ip+1)}
-      end
-
-      {:fail} -> quote do
-        case state.back_stack do
-          [frame | back_stack] ->
-            state = %{state |
-              back_stack: back_stack,
-              ret_stack: frame.ret_stack,
-              cap_stack: frame.cap_stack
-            }
-            {state, frame.s, frame.si, frame.ip_back}
-          [] ->
-            state = %{state | status: :error}
-            {state, s, si, 0}
+      {:span, cs} ->
+        quote do
+          {s1, s2} = Enum.split_while(s, fn c -> c in unquote(MapSet.to_list(cs)) end)
+          {state, s2, si + Enum.count(s1), unquote(ip) + 1}
         end
-      end
+
+      {:return} ->
+        quote do
+          case state.ret_stack do
+            [ip | rest] -> {%{state | ret_stack: rest}, s, si, ip}
+            [] -> {%{state | status: :ok}, s, si, ip}
+          end
+        end
+
+      {:choice, off_back, off_commit} ->
+        quote do
+          frame = %{
+            ip_back: ip + unquote(off_back),
+            ip_commit: ip + unquote(off_commit),
+            ret_stack: state.ret_stack,
+            cap_stack: state.cap_stack,
+            s: s,
+            si: si
+          }
+
+          state = %{state | back_stack: [frame | state.back_stack]}
+          {state, s, si, unquote(ip + 1)}
+        end
+
+      {:commit} ->
+        quote do
+          [frame | back_stack] = state.back_stack
+          state = %{state | back_stack: back_stack}
+          {state, s, si, frame.ip_commit}
+        end
+
+      {:call, addr} ->
+        quote do
+          state = %{state | ret_stack: [ip + 1 | state.ret_stack]}
+          {state, s, si, unquote(addr)}
+        end
+
+      {:capopen} ->
+        quote do
+          state = %{state | cap_stack: [{:open, s, si} | state.cap_stack]}
+          {state, s, si, unquote(ip + 1)}
+        end
+
+      {:capclose} ->
+        quote do
+          state = %{state | cap_stack: [{:close, s, si} | state.cap_stack]}
+          {state, s, si, unquote(ip + 1)}
+        end
+
+      {:code, code} ->
+        quote do
+          state = Xpeg.collect_captures(state)
+          func = unquote(code)
+          captures = func.(state.captures)
+          state = %{state | captures: captures}
+          {state, s, si, unquote(ip + 1)}
+        end
+
+      {:fail} ->
+        quote do
+          case state.back_stack do
+            [frame | back_stack] ->
+              state = %{
+                state
+                | back_stack: back_stack,
+                  ret_stack: frame.ret_stack,
+                  cap_stack: frame.cap_stack
+              }
+
+              {state, frame.s, frame.si, frame.ip_back}
+
+            [] ->
+              state = %{state | status: :error}
+              {state, s, si, 0}
+          end
+        end
     end
   end
 
-
   defp emit(program, options \\ []) do
+    cases =
+      program.instructions
+      |> Enum.map(fn {ip, inst} ->
+        body = emit_inst(ip, inst, options)
 
-    cases = program.instructions
-            |> Enum.map(fn {ip, inst} ->
-              body = emit_inst(ip, inst, options)
-              body = if options[:trace] do
-                trace = quote do
-                  Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
-                end
-                {:__block__, [], [trace, body]}
-              else
-                body
+        body =
+          if options[:trace] do
+            trace =
+              quote do
+                Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
               end
-              {:->, [], [[ip], body] }
-            end)
 
-    f = quote do
-      fn state, s, si, ip ->
-        {state, s, si, ip} = case ip do
-          unquote(cases)
-        end
-        case state.status do
-          :running ->
-            state.func.(state, s, si, ip)
-          _ ->
-            %{state | match_len: si}
+            {:__block__, [], [trace, body]}
+          else
+            body
+          end
+
+        {:->, [], [[ip], body]}
+      end)
+
+    f =
+      quote do
+        fn state, s, si, ip ->
+          {state, s, si, ip} =
+            case ip do
+              unquote(cases)
+            end
+
+          case state.status do
+            :running ->
+              state.func.(state, s, si, ip)
+
+            _ ->
+              %{state | match_len: si}
+          end
         end
       end
-    end
 
     if options[:debug] do
       IO.puts(Macro.to_string(f))
     end
-    
+
     f
   end
 
-
   defp link_one(program, rules, name) do
     instructions = rules[name]
-    program = %{ program |
-      symtab: Map.put(program.symtab, name, Enum.count(program.instructions)),
-      instructions: program.instructions ++ instructions
+
+    program = %{
+      program
+      | symtab: Map.put(program.symtab, name, Enum.count(program.instructions)),
+        instructions: program.instructions ++ instructions
     }
+
     Enum.reduce(instructions, program, fn inst, program ->
       case inst do
         {:call, callname} ->
-          if ! Map.has_key?(rules, callname) do
+          if !Map.has_key?(rules, callname) do
             raise("XPeg: rule '#{name}' is referencing undefined rule '#{callname}'")
           end
-          if ! Map.has_key?(program.symtab, callname) do
+
+          if !Map.has_key?(program.symtab, callname) do
             link_one(program, rules, callname)
           else
             program
           end
+
         _ ->
           program
       end
     end)
   end
 
-
-  defp link_grammar(grammar, options \\ []) do
+  defp link_grammar(grammar, options) do
     if options[:dump_ir] do
       IO.inspect(grammar)
     end
+
     program = %{
       instructions: [],
       symtab: %{}
     }
+
     program = link_one(program, grammar.rules, grammar.start)
-    program = Map.put(program, :instructions, Enum.with_index(program.instructions, fn inst, ip ->
-      case inst do
-        {:call, name} ->
-          {ip, {:call, program.symtab[name]}}
-        inst ->
-          {ip, inst}
-      end
-    end))
-    program = %{program | instructions: program.instructions ++ [ {:fail, {:fail} }]}
+
+    program =
+      Map.put(
+        program,
+        :instructions,
+        Enum.with_index(program.instructions, fn inst, ip ->
+          case inst do
+            {:call, name} ->
+              {ip, {:call, program.symtab[name]}}
+
+            inst ->
+              {ip, inst}
+          end
+        end)
+      )
+
+    program = %{program | instructions: program.instructions ++ [{:fail, {:fail}}]}
     program
   end
 
-
   def make(start, rules, options) do
-    %{ start: start, rules: rules }
+    %{start: start, rules: rules}
     |> link_grammar(options)
     |> emit(options)
   end
 
-
   defmacro peg(start, [{:do, v}]) do
     make(start, Parsepatt.parse(v), [])
   end
-  
+
   defmacro peg(start, options, [{:do, v}]) do
     make(start, Parsepatt.parse(v), options)
   end
 
   defmacro patt(v) do
-    make(:anon, %{ anon: Parsepatt.parse(v) ++ [{:return}]}, [])
+    make(:anon, %{anon: Parsepatt.parse(v) ++ [{:return}]}, [])
   end
-
 
   def match(func, s) do
     state = %{
@@ -267,25 +300,24 @@ defmodule Xpeg do
       ret_stack: [],
       cap_stack: [],
       captures: [],
-      match_len: 0,
+      match_len: 0
     }
+
     s = String.to_charlist(s)
-    {time, state} = :timer.tc fn -> func.(state, s, 0, 0) end
-    state = %{state | time: time/1.0e6}
+    {time, state} = :timer.tc(fn -> func.(state, s, 0, 0) end)
+    state = %{state | time: time / 1.0e6}
     collect_captures(state)
   end
 
-
   def run() do
-
-    p = peg :flop, [debug: false, trace: false, dump_ir: true] do
-      :flop <- :flip
-      :flip <- {'a'..'b'}
-    end
+    p =
+      peg :flop, debug: false, trace: false, dump_ir: false do
+        :flop <- :flip
+        :flip <- {'a'..'b'}
+      end
 
     match(p, "abcdefghi")
   end
-
 end
 
 # set ft=elixir

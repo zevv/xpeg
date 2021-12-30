@@ -11,11 +11,11 @@ defmodule Xpeg.MixProject do
       deps: deps(),
       package: [
         licenses: ["MIT"],
-        links: %{ "GitHub" => "https://github.com/zevv/xpeg" },
+        links: %{"GitHub" => "https://github.com/zevv/xpeg"}
       ],
       docs: [
         extras: ["README.md"],
-        logo: "xpeg.png",
+        logo: "xpeg.png"
       ]
     ]
   end
@@ -31,7 +31,7 @@ defmodule Xpeg.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.14"},
-      {:exprof, "~> 0.2.0"},
+      {:exprof, "~> 0.2.0"}
     ]
   end
 end

@@ -1,6 +1,4 @@
-
 defmodule Parsepatt do
-
   # Emit a choice/commit pair around pattern p; off_back and off_commit are the
   # offsets to the backtrack and commit targets, relative to the commit
   # instruction
@@ -12,7 +10,6 @@ defmodule Parsepatt do
   defp mk_choice(p1, p2) do
     choice_commit(p1, length(p1) + length(p2) + 2, length(p1) + 2) ++ p2
   end
-
 
   # kleene-star operator
   defp mk_star(p) do
@@ -44,10 +41,9 @@ defmodule Parsepatt do
 
   # Transform AST tuples into PEG IR
   def parse({id, lineinfo, args}) do
-    #IO.inspect {"parse", id, args}
+    # IO.inspect {"parse", id, args}
 
     case {id, args} do
-
       # Map of named rules
       {:__block__, ps} ->
         Enum.reduce(ps, %{}, fn rule, grammar ->
@@ -87,25 +83,28 @@ defmodule Parsepatt do
       # prefix '!': 'not' operator
       {:!, [p]} ->
         mk_not(parse(p))
-      
+
       # prefix '&': 'and-predicate' operator
       {:&, [p]} ->
         mk_not(mk_not(parse(p)))
 
       # Charset
       {:{}, ps} ->
-        [{:set, Enum.reduce(ps, MapSet.new(), fn p, set ->
-          case p do
-            [v] -> MapSet.put(set, v)
-            {:.., _, [[lo], [hi]]} -> MapSet.union(set, MapSet.new(lo..hi))
-          end
-        end)}]
-      
+        [
+          {:set,
+           Enum.reduce(ps, MapSet.new(), fn p, set ->
+             case p do
+               [v] -> MapSet.put(set, v)
+               {:.., _, [[lo], [hi]]} -> MapSet.union(set, MapSet.new(lo..hi))
+             end
+           end)}
+        ]
+
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
         p = parse(p)
-        (List.duplicate(p, n1) ++ List.duplicate(mk_opt(p), n2-n1)) |> List.flatten()
-      
+        (List.duplicate(p, n1) ++ List.duplicate(mk_opt(p), n2 - n1)) |> List.flatten()
+
       # Repetition count [n]
       {{:., _, [Access, :get]}, [p, n]} ->
         List.duplicate(parse(p), n) |> List.flatten()
@@ -118,15 +117,17 @@ defmodule Parsepatt do
       {:fn, [code]} ->
         [{:code, {:fn, lineinfo, [code]}}]
 
-      e -> raise("XPeg: #{inspect(lineinfo)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")
+      e ->
+        raise(
+          "XPeg: #{inspect(lineinfo)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
+        )
     end
   end
 
   # Delegate two-tuple :{} to the above parse function
-  def parse(v = {p1, p2}) do
-    parse {:{}, 0, [p1, p2]}
+  def parse({p1, p2}) do
+    parse({:{}, 0, [p1, p2]})
   end
-
 
   # Transform AST literals into PEG IR
   def parse(p) do
@@ -139,5 +140,4 @@ defmodule Parsepatt do
       v -> raise("Unhandled lit: #{inspect(v)}")
     end
   end
-
 end
