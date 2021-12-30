@@ -238,37 +238,27 @@ defmodule Xpeg do
   end
 
 
-  defmacro peg(start, [{:do, v}]) do
-    %{
-      start: start,
-      rules: Parsepatt.parse(v) |> Map.new
-    }
-    |> link_grammar
-    |> emit
-  end
-  
-  defmacro peg(start, options, [{:do, v}]) do
-    %{
-      start: start,
-      rules: Parsepatt.parse(v) |> Map.new
-    }
+  def make(start, rules, options) do
+    %{ start: start, rules: rules }
     |> link_grammar(options)
     |> emit(options)
   end
 
 
+  defmacro peg(start, [{:do, v}]) do
+    make(start, Parsepatt.parse(v) |> Map.new, [])
+  end
+  
+  defmacro peg(start, options, [{:do, v}]) do
+    make(start, Parsepatt.parse(v) |> Map.new, options)
+  end
+
   defmacro patt(v) do
-    %{
-      start: :anon,
-      rules: %{ anon: Parsepatt.parse(v) ++ [{:return}]}
-    }
-    |> link_grammar
-    |> emit
+    make(:anon, %{ anon: Parsepatt.parse(v) ++ [{:return}]}, [])
   end
 
 
   def match(func, s) do
-    s = String.to_charlist(s)
     state = %{
       func: func,
       time: 0,
@@ -279,15 +269,18 @@ defmodule Xpeg do
       captures: [],
       match_len: 0,
     }
+    s = String.to_charlist(s)
     {time, state} = :timer.tc fn -> func.(state, s, 0, 0) end
     state = %{state | time: time/1.0e6}
     collect_captures(state)
   end
 
+
   def run() do
 
-    p = peg :flop, [debug: false, trace: false, dump_ir: false] do
-      :flop <- cap(star({'a'..'f'})) * cap(+1)
+    p = peg :flop, [debug: false, trace: false, dump_ir: true] do
+      :flop <- :flip
+      :flip <- "a"
     end
 
     match(p, "abcdefghi")
