@@ -42,32 +42,20 @@ defmodule Parsepatt do
     List.flatten([mk_not(p2), p1])
   end
 
-  # Transform AST character set to PEG IR. `{'x','y','A'..'F','0'}`
-  defp parse_set(ps) do
-    s = Enum.reduce(ps, MapSet.new(), fn p, s ->
-      case p do
-        [v] -> MapSet.put(s, v)
-        v ->
-          [{:set, s2}] = parse(v)
-          MapSet.union(s, s2)
-      end
-    end)
-    s
-  end
-
   # Transform AST tuples into PEG IR
   def parse({id, lineinfo, args}) do
     #IO.inspect {"parse", id, args}
 
     case {id, args} do
 
-      # List of named rules
+      # Map of named rules
       {:__block__, ps} ->
         Enum.reduce(ps, %{}, fn rule, grammar ->
           {name, patt} = parse(rule)
           Map.put(grammar, name, patt)
         end)
 
+      # One rule: {name, patt}
       {:<-, [label, patt]} ->
         {label, parse(patt) ++ [{:return}]}
 
@@ -105,8 +93,13 @@ defmodule Parsepatt do
         mk_not(mk_not(parse(p)))
 
       # Charset
-      {:{}, p} ->
-        [{:set, parse_set(p)}]
+      {:{}, ps} ->
+        [{:set, Enum.reduce(ps, MapSet.new(), fn p, set ->
+          case p do
+            [v] -> MapSet.put(set, v)
+            {:.., _, [[lo], [hi]]} -> MapSet.union(set, MapSet.new(lo..hi))
+          end
+        end)}]
       
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
@@ -121,10 +114,6 @@ defmodule Parsepatt do
       {:cap, [p]} ->
         [{:capopen}] ++ parse(p) ++ [{:capclose}]
 
-      # Char range
-      {:.., [[lo], [hi]]} ->
-        [{:set, MapSet.new(lo..hi)}]
-
       # Code block
       {:fn, [code]} ->
         [{:code, {:fn, lineinfo, [code]}}]
@@ -133,15 +122,9 @@ defmodule Parsepatt do
     end
   end
 
-
-  # Charsets
-  def parse({p1, p2}) do
-    case {parse(p1), parse(p2)} do
-      {[{:chr, a}], [{:chr, b}]} -> [{:set, MapSet.new([a,b])}]
-      {[{:set, a}], [{:set, b}]} -> [{:set, MapSet.union(a, b)}]
-      {[{:set, a}], [{:chr, b}]} -> [{:set, MapSet.put(a, b)}]
-      {[{:chr, a}], [{:set, b}]} -> [{:set, MapSet.put(b, a)}]
-    end
+  # Delegate two-tuple :{} to the above parse function
+  def parse(v = {p1, p2}) do
+    parse {:{}, 0, [p1, p2]}
   end
 
 

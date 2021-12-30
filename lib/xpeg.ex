@@ -280,7 +280,7 @@ defmodule Xpeg do
 
     p = peg :flop, [debug: false, trace: false, dump_ir: true] do
       :flop <- :flip
-      :flip <- "a"
+      :flip <- {'a'..'b'}
     end
 
     match(p, "abcdefghi")
