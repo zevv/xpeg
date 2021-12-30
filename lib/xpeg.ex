@@ -246,11 +246,11 @@ defmodule Xpeg do
 
 
   defmacro peg(start, [{:do, v}]) do
-    make(start, Parsepatt.parse(v) |> Map.new, [])
+    make(start, Parsepatt.parse(v), [])
   end
   
   defmacro peg(start, options, [{:do, v}]) do
-    make(start, Parsepatt.parse(v) |> Map.new, options)
+    make(start, Parsepatt.parse(v), options)
   end
 
   defmacro patt(v) do

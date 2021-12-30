@@ -63,10 +63,13 @@ defmodule Parsepatt do
 
       # List of named rules
       {:__block__, ps} ->
-        Enum.reduce(ps, [], fn rule, acc -> parse(rule) ++ acc end)
+        Enum.reduce(ps, %{}, fn rule, grammar ->
+          {name, patt} = parse(rule)
+          Map.put(grammar, name, patt)
+        end)
 
       {:<-, [label, patt]} ->
-        [{label, parse(patt) ++ [{:return}]}]
+        {label, parse(patt) ++ [{:return}]}
 
       # infix: '*' Concatenation
       {:*, [p1, p2]} ->
