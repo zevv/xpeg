@@ -29,17 +29,13 @@ defmodule Parsepatt do
     choice_commit(p, length(p) + 2, length(p) + 2)
   end
 
-  # Minus for sets is the difference between sets
-  defp mk_minus([{:set, cs1}], c2) do
-    case c2 do
-      [{:set, cs}] -> [{:set, Enum.filter(cs1, &(&1 not in cs))}]
-      [{:chr, c}] -> [{:set, Enum.filter(cs1, &(&1 != c))}]
-    end
-  end
-
-  # Generic minus, !p2 * p1
+  # minus, !p2 * p1, optimized for :set
   defp mk_minus(p1, p2) do
-    List.flatten([mk_not(p2), p1])
+    case {p1, p2} do
+      {[{:set, cs1}], [{:set, cs2}]} -> [{:set, cs1 -- cs2}]
+      {[{:set, cs1}], [{:chr, c2}]} -> [{:set, cs1 -- [c2]}]
+      {_, _} -> mk_not(p2) ++ p1
+    end
   end
 
   # Transform AST tuples into PEG IR
@@ -93,15 +89,13 @@ defmodule Parsepatt do
 
       # Charset
       {:{}, ps} ->
-        [
-          {:set,
-           Enum.reduce(ps, [], fn p, set ->
-             case p do
-               [v] -> [v | set]
-               {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
-             end
-           end)}
-        ]
+         cs = Enum.reduce(ps, [], fn p, set ->
+           case p do
+             [v] -> [v | set]
+             {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
+           end
+         end)
+        [{:set,cs}]
 
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
