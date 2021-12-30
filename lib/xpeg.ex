@@ -286,7 +286,7 @@ defmodule Xpeg do
 
   def run() do
 
-    p = peg :flop, [debug: false, trace: true, dump_ir: true] do
+    p = peg :flop, [debug: false, trace: false, dump_ir: false] do
       :flop <- cap(star({'a'..'f'})) * cap(+1)
     end
 
