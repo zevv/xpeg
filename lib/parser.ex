@@ -1,4 +1,5 @@
 defmodule Parser do
+  @moduledoc false
 
   @inline_max_len 30
 

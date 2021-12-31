@@ -1,4 +1,5 @@
 defmodule Codegen do
+  @moduledoc false
 
   def trace(ip, cmd, s) do
     ip = to_string(ip) |> String.pad_leading(4, " ")

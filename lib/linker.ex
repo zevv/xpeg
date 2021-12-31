@@ -1,4 +1,5 @@
 defmodule Linker do
+  @moduledoc false
 
   defp link_one(program, rules, name) do
     if rules[name] == nil do
@@ -11,7 +12,6 @@ defmodule Linker do
       | symtab: Map.put(program.symtab, name, Enum.count(program.instructions)),
         instructions: program.instructions ++ instructions ++ [{:return}]
     }
-    #|> IO.inspect
 
     Enum.reduce(instructions, program, fn inst, program ->
       case inst do
@@ -27,24 +27,6 @@ defmodule Linker do
           program
       end
     end)
-  end
-
-  def dump(insts, symtab, options) do
-    revtab = Enum.reduce(symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
-    if options[:dump_ir] do
-      Enum.reduce(insts, [], fn {ip, inst}, lines ->
-        lines = if Map.has_key?(revtab, ip) do
-          [ "#{revtab[ip]}:" | lines]
-        else
-          lines
-        end
-        [ "  #{ip}  #{Xpeg.dump_inst(inst)}" | lines]
-      end)
-      |> Enum.reverse()
-      |> Enum.join("\n")
-      |> IO.puts
-    end
-    insts
   end
 
   def link_grammar(grammar, options) do
@@ -83,6 +65,24 @@ defmodule Linker do
           {ip, inst}
       end
     end)
+  end
+  
+  def dump(insts, symtab, options) do
+    revtab = Enum.reduce(symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
+    if options[:dump_ir] do
+      Enum.reduce(insts, [], fn {ip, inst}, lines ->
+        lines = if Map.has_key?(revtab, ip) do
+          [ "#{revtab[ip]}:" | lines]
+        else
+          lines
+        end
+        [ "  #{ip}  #{Xpeg.dump_inst(inst)}" | lines]
+      end)
+      |> Enum.reverse()
+      |> Enum.join("\n")
+      |> IO.puts
+    end
+    insts
   end
 
 end
