@@ -3,7 +3,8 @@ defmodule Xpeg do
   require Record
   
   Record.defrecord(:state, 
-    func: :nil,
+    func: nil,
+    userdata: nil,
     back_stack: [],
     ret_stack: [],
     captures: [],
@@ -81,8 +82,8 @@ defmodule Xpeg do
     make(:anon, %{anon: Parser.parse(%{}, v) ++ [{:return}]}, [])
   end
 
-  def match(func, s) do
-    ctx = state(func: func)
+  def match(func, s, data \\ :nodata) do
+    ctx = state(func: func, userdata: data)
 
     {time, {ctx, match_len}} = :timer.tc(fn ->
       func.(ctx, String.to_charlist(s), 0, 0)
@@ -93,7 +94,8 @@ defmodule Xpeg do
       captures: state(ctx, :captures),
       status: state(ctx, :status),
       time: time / 1.0e6,
-      match_len: match_len
+      match_len: match_len,
+      userdata: state(ctx, :userdata),
     }
   end
 

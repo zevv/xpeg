@@ -109,8 +109,11 @@ defmodule Codegen do
         quote do
           ctx = Xpeg.collect_captures(ctx)
           func = unquote(code)
-          captures = func.(Xpeg.state(ctx, :captures))
-          ctx = Xpeg.state(ctx, captures: captures)
+          {captures, data} = case {Xpeg.state(ctx, :captures), Xpeg.state(ctx, :userdata)} do
+            {captures, :nodata} -> {func.(captures), :nodata}
+            {captures, data} -> func.(captures, data)
+          end
+          ctx = Xpeg.state(ctx, captures: captures, userdata: data)
           {ctx, s, si, unquote(ip + 1)}
         end
 

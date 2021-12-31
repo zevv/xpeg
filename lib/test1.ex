@@ -68,12 +68,12 @@ defmodule Test1 do
 
   def run() do
     p =
-      peg :flop, debug: false, trace: false, dump_ir: false do
-        :flip <- cap({'a'..'c'} - 1) * fn cs -> IO.puts("Hallo"); cs end
+      peg :flop, debug: true, trace: true, dump_ir: false do
+        :flip <- cap("abc") * fn cs, data -> {cs, data+1} end
         :flop <- :flip
       end
 
-    match(p, "abcdefghi")
+    match(p, "abcdefghi", 42)
   end
 
   def wop() do
