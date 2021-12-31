@@ -1,4 +1,4 @@
-defmodule Parsepatt do
+defmodule Parser do
 
   @inline_max_len 30
 
