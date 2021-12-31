@@ -49,6 +49,12 @@ defmodule Parser do
     end)
   end
 
+  # Parse a grammar consisting of one named rule
+  def parse({:<-, _, [name, patt]}) do
+    %{name => parse(%{}, patt)}
+    |> IO.inspect
+  end
+
   # Parse a pattern
   def parse(grammar, {id, meta, args}) do
     # IO.inspect {"parse", id, args}

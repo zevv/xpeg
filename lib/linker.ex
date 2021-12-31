@@ -1,6 +1,9 @@
 defmodule Linker do
 
   defp link_one(program, rules, name) do
+    if rules[name] == nil do
+      raise("XPeg: referencing undefined rule '#{name}'")
+    end
     instructions = rules[name]
 
     program = %{
@@ -13,9 +16,6 @@ defmodule Linker do
     Enum.reduce(instructions, program, fn inst, program ->
       case inst do
         {:call, callname} ->
-          if !Map.has_key?(rules, callname) do
-            raise("XPeg: rule '#{name}' is referencing undefined rule '#{callname}'")
-          end
 
           if !Map.has_key?(program.symtab, callname) do
             link_one(program, rules, callname)
