@@ -1,4 +1,7 @@
 defmodule Parsepatt do
+
+  @inline_max_len 30
+
   # Emit a choice/commit pair around pattern p; off_back and off_commit are the
   # offsets to the backtrack and commit targets, relative to the commit
   # instruction
@@ -38,54 +41,52 @@ defmodule Parsepatt do
     end
   end
 
-  # Transform AST tuples into PEG IR
-  def parse({id, lineinfo, args}) do
+  # Parse a grammar consisting of a list of named rules
+  def parse({:__block__, _meta, ps}) do
+    Enum.reduce(ps, %{}, fn rule, grammar ->
+      {:<-, _, [name, patt]} = rule
+      Map.put(grammar, name, parse(grammar, patt))
+    end)
+  end
+
+  # Parse a pattern
+  def parse(grammar, {id, meta, args}) do
     # IO.inspect {"parse", id, args}
 
     case {id, args} do
-      # Map of named rules
-      {:__block__, ps} ->
-        Enum.reduce(ps, %{}, fn rule, grammar ->
-          {name, patt} = parse(rule)
-          Map.put(grammar, name, patt)
-        end)
-
-      # One rule: {name, patt}
-      {:<-, [label, patt]} ->
-        {label, parse(patt) ++ [{:return}]}
 
       # infix: '*' Concatenation
       {:*, [p1, p2]} ->
-        parse(p1) ++ parse(p2)
+        parse(grammar, p1) ++ parse(grammar, p2)
 
       # infix '|': Ordered choice
       {:|, [p1, p2]} ->
-        mk_choice(parse(p1), parse(p2))
+        mk_choice(parse(grammar, p1), parse(grammar, p2))
 
       # prefix '*': zero-or-more operator
       {:star, [p]} ->
-        mk_star(parse(p))
+        mk_star(parse(grammar, p))
 
       # prefix '?': one-or-zero operator
       {:opt, [p]} ->
-        mk_opt(parse(p))
+        mk_opt(parse(grammar, p))
 
       # prefix '+': one-or-more operator
       {:+, [p]} ->
-        p = parse(p)
+        p = parse(grammar, p)
         p ++ mk_star(p)
 
       # Infix '-': difference
       {:-, [p1, p2]} ->
-        mk_minus(parse(p1), parse(p2))
+        mk_minus(parse(grammar, p1), parse(grammar, p2))
 
       # prefix '!': 'not' operator
       {:!, [p]} ->
-        mk_not(parse(p))
+        mk_not(parse(grammar, p))
 
       # prefix '&': 'and-predicate' operator
       {:&, [p]} ->
-        mk_not(mk_not(parse(p)))
+        mk_not(mk_not(parse(grammar, p)))
 
       # Charset
       {:{}, ps} ->
@@ -99,38 +100,45 @@ defmodule Parsepatt do
 
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
-        p = parse(p)
+        p = parse(grammar, p)
         (List.duplicate(p, n1) ++ List.duplicate(mk_opt(p), n2 - n1)) |> List.flatten()
 
       # Repetition count [n]
       {{:., _, [Access, :get]}, [p, n]} ->
-        List.duplicate(parse(p), n) |> List.flatten()
+        List.duplicate(parse(grammar, p), n) |> List.flatten()
 
       # Capture
       {:cap, [p]} ->
-        [{:capopen}] ++ parse(p) ++ [{:capclose}]
+        [{:capopen}] ++ parse(grammar, p) ++ [{:capclose}]
 
       # Code block
       {:fn, [code]} ->
-        [{:code, {:fn, lineinfo, [code]}}]
+        [{:code, {:fn, meta, [code]}}]
 
       e ->
         raise(
-          "XPeg: #{inspect(lineinfo)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
+          "XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
         )
     end
   end
 
   # Delegate two-tuple :{} to the above parse function
-  def parse({p1, p2}) do
-    parse({:{}, 0, [p1, p2]})
+  def parse(grammar, {p1, p2}) do
+    parse(grammar, {:{}, 0, [p1, p2]})
   end
 
   # Transform AST literals into PEG IR
-  def parse(p) do
+  def parse(grammar, p) do
     case p do
+      v when is_atom(v) ->
+        # Small rules that are already in the grammar get inlined instead of
+        # called
+        if grammar[v] != nil and Enum.count(grammar[v]) < @inline_max_len do
+          grammar[v]
+        else
+          [{:call, v}]
+        end
       0 -> [{:nop}]
-      v when is_atom(v) -> [{:call, v}]
       v when is_number(v) -> [{:any, v}]
       v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
       [v] -> [{:chr, v}]

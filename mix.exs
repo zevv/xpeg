@@ -31,7 +31,8 @@ defmodule Xpeg.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.14"},
-      {:exprof, "~> 0.2.0"}
+      {:exprof, "~> 0.2.0"},
+      {:poison, "~> 5.0"}
     ]
   end
 end

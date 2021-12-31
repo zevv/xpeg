@@ -196,41 +196,26 @@ defmodule Xpeg do
       program.instructions
       |> Enum.map(fn {ip, inst} ->
         body = emit_inst(ip, inst, options)
-
         body =
           if options[:trace] do
-            trace =
-              quote do
-                Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
-              end
-
+            trace = quote do: Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
             {:__block__, [], [trace, body]}
           else
             body
           end
-
         {:->, [], [[ip], body]}
       end)
 
-    f =
-      quote do
-        fn ctx, s, si, ip ->
-
-          {ctx, s, si, ip} =
-            case ip do
-              unquote(cases)
-            end
-
-          func = state(ctx, :func)
-          
-          case Xpeg.state(ctx, :status) do
-            :running ->
-              func.(ctx, s, si, ip)
-            _ ->
-              {ctx, si}
-          end
+    f = quote do
+      fn ctx, s, si, ip ->
+        {ctx, s, si, ip} = case ip do unquote(cases) end
+        func = state(ctx, :func)
+        case Xpeg.state(ctx, :status) do
+          :running -> func.(ctx, s, si, ip)
+          _ -> {ctx, si}
         end
       end
+    end
 
     if options[:debug] do
       IO.puts(Macro.to_string(f))
@@ -245,8 +230,9 @@ defmodule Xpeg do
     program = %{
       program
       | symtab: Map.put(program.symtab, name, Enum.count(program.instructions)),
-        instructions: program.instructions ++ instructions
+        instructions: program.instructions ++ instructions ++ [{:return}]
     }
+    #|> IO.inspect
 
     Enum.reduce(instructions, program, fn inst, program ->
       case inst do
@@ -280,6 +266,7 @@ defmodule Xpeg do
     program = link_one(program, grammar.rules, grammar.start)
 
     is = program.instructions
+         #|> IO.inspect(limit: :infinity)
          |> peephole()
          |> resolve_addresses(program)
 
@@ -326,7 +313,7 @@ defmodule Xpeg do
   end
 
   defmacro patt(v) do
-    make(:anon, %{anon: Parsepatt.parse(v) ++ [{:return}]}, [])
+    make(:anon, %{anon: Parsepatt.parse(%{}, v) ++ [{:return}]}, [])
   end
 
   def match(func, s) do
