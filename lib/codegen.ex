@@ -155,7 +155,7 @@ defmodule Codegen do
     f = quote do
       fn ctx, s, si, ip ->
         {ctx, s, si, ip} = case ip do unquote(cases) end
-        func = state(ctx, :func)
+        func = Xpeg.state(ctx, :func)
         case Xpeg.state(ctx, :status) do
           :running -> func.(ctx, s, si, ip)
           _ -> {ctx, si}
