@@ -50,7 +50,7 @@ defmodule Parser do
     end)
   end
 
-  # Parse a grammar consisting of one named rule
+  # Parse a grammar consisting of one single rule
   def parse({:<-, _, [name, patt]}) do
     %{name => parse(%{}, patt)}
   end
