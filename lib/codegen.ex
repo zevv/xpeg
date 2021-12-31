@@ -152,7 +152,7 @@ defmodule Codegen do
         body = emit_inst(ip, inst, options)
         body =
           if options[:trace] do
-            trace = quote do: Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
+            trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
             {:__block__, [], [trace, body]}
           else
             body

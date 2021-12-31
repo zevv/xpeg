@@ -29,11 +29,25 @@ defmodule Linker do
     end)
   end
 
-  def link_grammar(grammar, options) do
+  def dump(insts, symtab, options) do
+    revtab = Enum.reduce(symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
     if options[:dump_ir] do
-      IO.inspect(grammar)
+      Enum.reduce(insts, [], fn {ip, inst}, lines ->
+        lines = if Map.has_key?(revtab, ip) do
+          [ "#{revtab[ip]}:" | lines]
+        else
+          lines
+        end
+        [ "  #{ip}  #{Xpeg.dump_inst(inst)}" | lines]
+      end)
+      |> Enum.reverse()
+      |> Enum.join("\n")
+      |> IO.puts
     end
+    insts
+  end
 
+  def link_grammar(grammar, options) do
     program = %{
       instructions: [],
       symtab: %{}
@@ -41,15 +55,12 @@ defmodule Linker do
 
     program = link_one(program, grammar.rules, grammar.start)
 
-    is = program.instructions
-         #|> IO.inspect(limit: :infinity)
-         |> peephole()
-         |> resolve_addresses(program)
+    insts = program.instructions
+            |> peephole()
+            |> resolve_addresses(program)
+            |> dump(program.symtab, options)
 
-    is = is ++ [{:fail, {:fail}}]
-
-    program = %{program | instructions: is}
-    program
+    %{program | instructions: insts ++ [{:fail, {:fail}}]}
   end
 
   def peephole(insts) do

@@ -52,7 +52,6 @@ defmodule Parser do
   # Parse a grammar consisting of one named rule
   def parse({:<-, _, [name, patt]}) do
     %{name => parse(%{}, patt)}
-    |> IO.inspect
   end
 
   # Parse a pattern

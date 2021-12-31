@@ -58,9 +58,16 @@ defmodule Xpeg do
     state(ctx, cap_stack: cap_stack, captures: captures ++ state(ctx, :captures))
   end
 
+  def dump_inst(inst) do
+    case inst do
+      {:code, code} -> Macro.to_string(code)
+      inst -> Tuple.to_list(inst) |> Enum.map(&inspect/1) |> Enum.join(" ")
+    end
+  end
+
   def trace(ip, cmd, s) do
     ip = to_string(ip) |> String.pad_leading(4, " ")
-    s = inspect(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
+    s = Enum.take(s, 20) |> inspect |> String.pad_trailing(20, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
