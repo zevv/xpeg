@@ -41,7 +41,7 @@ defmodule Codegen do
       {:span, cs} ->
         quote do
           {s1, s2} = Enum.split_while(s, fn c -> c in unquote(cs) end)
-          {ctx, s2, si + Enum.count(s1), unquote(ip) + 1}
+          {ctx, s2, si + Enum.count(s1), unquote(ip + 1)}
         end
 
       {:return} ->
@@ -106,22 +106,23 @@ defmodule Codegen do
         end
 
       {:code, code} ->
-        if options[:userdata] do
+        body = if options[:userdata] do
           quote do
-            ctx = Xpeg.collect_captures(ctx)
-            func = unquote(code)
             {captures, data} = func.(Xpeg.state(ctx, :captures), Xpeg.state(ctx, :userdata))
             ctx = Xpeg.state(ctx, captures: captures, userdata: data)
-            {ctx, s, si, unquote(ip + 1)}
           end
         else
           quote do
-            ctx = Xpeg.collect_captures(ctx)
-            func = unquote(code)
             captures = func.(Xpeg.state(ctx, :captures))
             ctx = Xpeg.state(ctx, captures: captures)
-            {ctx, s, si, unquote(ip + 1)}
           end
+        end
+
+        quote do
+          ctx = Xpeg.collect_captures(ctx)
+          func = unquote(code)
+          unquote(body)
+          {ctx, s, si, unquote(ip + 1)}
         end
 
       {:fail} ->
