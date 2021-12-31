@@ -1,7 +1,8 @@
 defmodule Xpeg do
 
   require Record
-  
+
+  @doc false
   Record.defrecord(:state, 
     func: nil,
     userdata: nil,
@@ -35,6 +36,7 @@ defmodule Xpeg do
 
   """
 
+  @doc false
   defp collect_captures(stack, acc, caps) do
     case {stack, acc} do
       {[{:open, s, si} | stack], _} ->
@@ -50,6 +52,7 @@ defmodule Xpeg do
     end
   end
 
+  @doc false
   def collect_captures(ctx) do
     {cap_stack, captures} =
       state(ctx, :cap_stack)
@@ -58,6 +61,7 @@ defmodule Xpeg do
     state(ctx, cap_stack: cap_stack, captures: captures ++ state(ctx, :captures))
   end
 
+  @doc false
   def dump_inst(inst) do
     case inst do
       {:code, code} -> Macro.to_string(code)
@@ -65,19 +69,24 @@ defmodule Xpeg do
     end
   end
 
+  @doc false
   def trace(ip, cmd, s) do
     ip = to_string(ip) |> String.pad_leading(4, " ")
     s = Enum.take(s, 20) |> inspect |> String.pad_trailing(20, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
+  @doc false
   defp make(start, rules, options) do
     %{start: start, rules: rules}
     |> Linker.link_grammar(options)
     |> Codegen.emit(options)
   end
 
-  defmacro peg(start, [{:do, v}]) do
+  @doc """
+  Define a PEG grammar which uses `start` as the initial rule
+  """
+  defmacro peg(start, _rules = [{:do, v}]) do
     make(start, Parser.parse(v), [])
   end
 
@@ -85,11 +94,23 @@ defmodule Xpeg do
     make(start, Parser.parse(v), options)
   end
 
+  @doc """
+  Define a grammar with one anonymous rule
+  """
+
   defmacro patt(v) do
     make(:anon, %{anon: Parser.parse(%{}, v) ++ [{:return}]}, [])
   end
 
-  def match(func, s, data \\ :nodata) do
+  @doc """
+  Execute a grammar against a subject string. The result is a map with the following fields:
+  - `captures`: The captures made by the grammar
+  - `status`: either `:ok` or `:error`, depending on a successful match of the subject
+  - `time`: Time taken to match the subject (seconds)
+  - `match_len`: The total number of UTF-8 characters matched
+  - `userdata`: Returned userdata
+  """
+  def match(func, s, data \\ nil) do
     ctx = state(func: func, userdata: data)
 
     {time, {ctx, match_len}} = :timer.tc(fn ->
