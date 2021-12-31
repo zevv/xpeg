@@ -1,9 +1,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-![Stability: experimental](https://img.shields.io/badge/stability-stable-green.svg)
+![Stability: experimental](https://img.shields.io/badge/stability-beta-yellow.svg)
 
 ![XPeg](xpeg.png)
 
-Beware: this is proof-of-concept alpha quality code.
 
 More documentation will be added, for now please refer to the documentation of
 [NPeg](https://github.com/zevv/npeg), a Nim implementation of a similar PEG
