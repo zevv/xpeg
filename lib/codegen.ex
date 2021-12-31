@@ -6,7 +6,7 @@ defmodule Codegen do
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
-  defp emit_inst(ip, inst, _options) do
+  defp emit_inst(ip, inst, options) do
     case inst do
       {:nop} ->
         quote do
@@ -106,15 +106,22 @@ defmodule Codegen do
         end
 
       {:code, code} ->
-        quote do
-          ctx = Xpeg.collect_captures(ctx)
-          func = unquote(code)
-          {captures, data} = case {Xpeg.state(ctx, :captures), Xpeg.state(ctx, :userdata)} do
-            {captures, :nodata} -> {func.(captures), :nodata}
-            {captures, data} -> func.(captures, data)
+        if options[:userdata] do
+          quote do
+            ctx = Xpeg.collect_captures(ctx)
+            func = unquote(code)
+            {captures, data} = func.(Xpeg.state(ctx, :captures), Xpeg.state(ctx, :userdata))
+            ctx = Xpeg.state(ctx, captures: captures, userdata: data)
+            {ctx, s, si, unquote(ip + 1)}
           end
-          ctx = Xpeg.state(ctx, captures: captures, userdata: data)
-          {ctx, s, si, unquote(ip + 1)}
+        else
+          quote do
+            ctx = Xpeg.collect_captures(ctx)
+            func = unquote(code)
+            captures = func.(Xpeg.state(ctx, :captures))
+            ctx = Xpeg.state(ctx, captures: captures)
+            {ctx, s, si, unquote(ip + 1)}
+          end
         end
 
       {:fail} ->
