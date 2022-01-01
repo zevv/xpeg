@@ -1,4 +1,4 @@
-defmodule Codegen do
+defmodule Xpeg.Codegen do
   @moduledoc false
 
   def trace(ip, cmd, s) do
@@ -172,7 +172,7 @@ defmodule Codegen do
       end
     end
 
-    if options[:debug] do
+    if options[:dump_code] do
       IO.puts(Macro.to_string(f))
     end
 

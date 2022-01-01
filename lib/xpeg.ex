@@ -15,15 +15,17 @@ defmodule Xpeg do
 
   @moduledoc """
 
-    XPeg is a pure Elixir pattern matching library. It provides macros to compile
-    patterns and grammars (PEGs) to Elixir function which will parse a string and
-    collect selected parts of the input. PEGs are not unlike regular expressions,
-    but offer more power and flexibility, and have less ambiguities. (More about 
-    PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
+  XPeg is a pure Elixir pattern matching library. It provides macros to compile
+  patterns and grammars (PEGs) to Elixir function which will parse a string and
+  collect selected parts of the input. PEGs are not unlike regular expressions,
+  but offer more power and flexibility, and have less ambiguities. (More about 
+  PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
-    Some use cases where XPeg is useful are configuration or data file parsers,
-    robust protocol implementations, input validation, lexing of programming
-    languages or domain specific languages.
+  Some use cases where XPeg is useful are configuration or data file parsers,
+  robust protocol implementations, input validation, lexing of programming
+  languages or domain specific languages.
+
+  ## Examples
 
       p = Xpeg.peg :dict do
         :dict <- :pair * star("," * :pair) * !1
@@ -79,27 +81,42 @@ defmodule Xpeg do
   @doc false
   defp make(start, rules, options) do
     %{start: start, rules: rules}
-    |> Linker.link_grammar(options)
-    |> Codegen.emit(options)
+    |> Xpeg.Linker.link_grammar(options)
+    |> Xpeg.Codegen.emit(options)
   end
 
   @doc """
   Define a PEG grammar which uses `start` as the initial rule
   """
   defmacro peg(start, _rules = [{:do, v}]) do
-    make(start, Parser.parse(v), [])
-  end
-
-  defmacro peg(start, options, [{:do, v}]) do
-    make(start, Parser.parse(v), options)
+    make(start, Xpeg.Parser.parse(v), [])
   end
 
   @doc """
-  Define a grammar with one anonymous rule
+  Define a PEG grammar which uses `start` as the initial rule, allowing
+  for additional options:
+
+  - `:trace` - if `true`, a trace is dumped during parser execution
+  - `:dump_ir` - if `true`, the IR (intermediate representation) of the
+    generated parser is dumped at compile time
+  - `:dump_code` - if `true`, the generated Elixir code for the parser
+    is dumped at compile time
+  - `:userdata` - if `true`, elixir functions that are embedded in the grammar
+    take an additional accumulator argument and should return a tuple 
+    `{captures | acc}` - the resulting accumulator value is available as 
+    the `userdata` field in the return value of the `match()1 function
+
+  """
+  defmacro peg(start, options, [{:do, v}]) do
+    make(start, Xpeg.Parser.parse(v), options)
+  end
+
+  @doc """
+  Define a grammar with one anonymous rule.
   """
 
   defmacro patt(v) do
-    make(:anon, %{anon: Parser.parse(%{}, v) ++ [{:return}]}, [])
+    make(:anon, %{anon: Xpeg.Parser.parse(%{}, v) ++ [{:return}]}, [])
   end
 
   @doc """
@@ -110,8 +127,8 @@ defmodule Xpeg do
   - `match_len`: The total number of UTF-8 characters matched
   - `userdata`: Returned userdata
   """
-  def match(func, s, data \\ nil) do
-    ctx = state(func: func, userdata: data)
+  def match(func, s, userdata \\ nil) do
+    ctx = state(func: func, userdata: userdata)
 
     {time, {ctx, match_len}} = :timer.tc(fn ->
       func.(ctx, String.to_charlist(s), 0, 0)

@@ -1,4 +1,4 @@
-defmodule Linker do
+defmodule Xpeg.Linker do
   @moduledoc false
 
   defp link_one(program, rules, name) do
