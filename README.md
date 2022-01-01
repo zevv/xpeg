@@ -27,7 +27,7 @@ languages or domain specific languages.
 ```elixir
 def deps do
   [
-    {:xpeg, "~> 0.3.1"}
+    {:xpeg, "~> 0.3.2"}
   ]
 end
 ```
