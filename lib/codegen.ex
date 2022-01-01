@@ -23,19 +23,21 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:chr, c} ->
+      {:chr, c, off_fail} ->
+        ip_fail = if off_fail == 0 do :fail else ip + off_fail end
         quote do
           case s do
             [unquote(c) | s] -> {ctx, s, si + 1, unquote(ip + 1)}
-            _ -> {ctx, s, si, :fail}
+            _ -> {ctx, s, si, unquote(ip_fail)}
           end
         end
 
-      {:set, cs} ->
+      {:set, cs, off_fail} ->
+        ip_fail = if off_fail == 0 do :fail else ip + off_fail end
         quote do
           case s do
             [c | s] when c in unquote(cs) -> {ctx, s, si + 1, unquote(ip + 1)}
-            _ -> {ctx, s, si, :fail}
+            _ -> {ctx, s, si, unquote(ip_fail)}
           end
         end
 
@@ -57,14 +59,18 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:choice, off_back, off_commit} ->
+      {:choice, off_back, off_commit, c} ->
+        ssave = case c do
+          nil -> quote do s end
+          c -> quote do [unquote(c) | s] end # Restore consumed c for headfails
+        end
         quote do
           frame = %{
             ip_back: ip + unquote(off_back),
             ip_commit: ip + unquote(off_commit),
             ret_stack: Xpeg.state(ctx, :ret_stack),
             cap_stack: Xpeg.state(ctx, :cap_stack),
-            s: s,
+            s: unquote(ssave),
             si: si
           }
 
