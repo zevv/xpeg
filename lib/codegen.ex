@@ -17,7 +17,9 @@ defmodule Xpeg.Codegen do
       {:any, n} ->
         quote do
           if Enum.count(s) >= unquote(n) do
-            {ctx, Enum.drop(s, unquote(n)), si + unquote(n), unquote(ip + 1)}
+            s = Enum.drop(s, unquote(n))
+            si = si + unquote(n)
+            {ctx, s, si, unquote(ip + 1)}
           else
             {ctx, s, si, :fail}
           end
@@ -27,7 +29,9 @@ defmodule Xpeg.Codegen do
         ip_fail = if off_fail == 0 do :fail else ip + off_fail end
         quote do
           case s do
-            [unquote(c) | s] -> {ctx, s, si + 1, unquote(ip + 1)}
+            [unquote(c) | s] ->
+              si = si + 1
+              {ctx, s, si, unquote(ip + 1)}
             _ -> {ctx, s, si, unquote(ip_fail)}
           end
         end
@@ -36,21 +40,24 @@ defmodule Xpeg.Codegen do
         ip_fail = if off_fail == 0 do :fail else ip + off_fail end
         quote do
           case s do
-            [c | s] when c in unquote(cs) -> {ctx, s, si + 1, unquote(ip + 1)}
+            [c | s] when c in unquote(cs) ->
+              si = si + 1
+              {ctx, s, si, unquote(ip + 1)}
             _ -> {ctx, s, si, unquote(ip_fail)}
           end
         end
 
       {:span, cs} ->
         quote do
-          {s1, s2} = Enum.split_while(s, fn c -> c in unquote(cs) end)
-          {ctx, s2, si + Enum.count(s1), unquote(ip + 1)}
+          {s1, s} = Enum.split_while(s, fn c -> c in unquote(cs) end)
+          si = si + Enum.count(s1)
+          {ctx, s, si, unquote(ip + 1)}
         end
 
       {:return} ->
         quote do
           case Xpeg.state(ctx, :ret_stack) do
-            [ip | ret_stack] -> 
+            [ip | ret_stack] ->
               ctx = Xpeg.state(ctx, ret_stack: ret_stack)
               {ctx, s, si, ip}
             [] ->
@@ -59,15 +66,15 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:choice, off_back, off_commit, c} ->
+      {:choice, ip_back, ip_commit, c} ->
         ssave = case c do
           nil -> quote do s end
           c -> quote do [unquote(c) | s] end # Restore consumed c for headfails
         end
         quote do
           frame = %{
-            ip_back: ip + unquote(off_back),
-            ip_commit: ip + unquote(off_commit),
+            ip_back: unquote(ip_back),
+            ip_commit: unquote(ip_commit),
             ret_stack: Xpeg.state(ctx, :ret_stack),
             cap_stack: Xpeg.state(ctx, :cap_stack),
             s: unquote(ssave),
@@ -153,30 +160,64 @@ defmodule Xpeg.Codegen do
   end
 
   
-  def trace_inst(body, ip, inst, options) do
+  def trace_inst(code, ip, inst, options) do
     if options[:trace] do
       trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
-      {:__block__, [], [trace, body]}
+      {:__block__, [], [trace, code]}
     else
-      body
+      code
     end
+  end
+
+
+  def inline_one(ip, code, cases, refs, top) do
+    if top and not Map.has_key?(refs, ip) do
+      quote do :inlined end
+    else
+      Macro.postwalk(code, fn n ->
+        case n do
+          {:{}, [], [{:ctx, _, _}, _, _, ip_next]} ->
+            if is_number(ip_next) and not Map.has_key?(refs, ip_next) do
+              inline_one(ip_next, cases[ip_next], cases, refs, false)
+            else
+              n
+            end
+          n ->
+            n
+        end
+      end)
+    end
+  end
+
+
+  def inline(cases, refs) do
+    Enum.map(cases, fn {ip, code} ->
+      {ip, inline_one(ip, code, cases, refs, true)}
+    end)
+    |> Enum.filter(fn {ip, code} -> code != :inlined end)
   end
 
 
   def emit(program, options \\ []) do
 
-    # Generate case clauses
-    cases =
-      for {ip, inst} <- program.instructions do
+    # Generate code for the IR
+    cases = Enum.reduce(program.instructions, %{}, fn {ip, inst}, cases ->
+      Map.put(cases, ip, 
         emit_inst(ip, inst, options)
         |> trace_inst(ip, inst, options)
-        |> then(&{:->, [], [[ip], &1]})
-      end
+      )
+    end)
+    |> inline(program.refs)
+
+    # Generate case clauses
+    clauses = Enum.map(cases, fn {ip, code} ->
+      {:->, [], [[ip], code]}
+    end)
 
     # Generate the main parser function
     f = quote do
       fn ctx, s, si, ip ->
-        {ctx, s, si, ip} = case ip do unquote(cases) end
+        {ctx, s, si, ip} = case ip do unquote(clauses) end
         func = Xpeg.state(ctx, :func)
         case Xpeg.state(ctx, :status) do
           :running -> func.(ctx, s, si, ip)

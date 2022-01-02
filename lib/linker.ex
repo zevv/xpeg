@@ -32,38 +32,67 @@ defmodule Xpeg.Linker do
   def link_grammar(grammar, options) do
     program = %{
       instructions: [],
-      symtab: %{}
+      symtab: %{},
+      refs: %{},
     }
 
     program = link_rule(program, grammar.rules, grammar.start)
 
     insts = program.instructions
-            |> peephole()
+            |> Enum.with_index(fn inst, ip -> {ip, inst} end)
             |> resolve_addresses(program)
+            |> peephole()
             |> dump(program.symtab, options)
 
-    %{program | instructions: insts ++ [{:fail, {:fail}}]}
+    %{program | 
+      refs: count_refs(insts),
+      instructions: insts ++ [{:fail, {:fail}}]}
+  end
+
+  def count_refs(insts) do
+    Enum.reduce(insts, %{}, fn {ip, inst}, acc ->
+      case inst do
+        {:choice, ip_back, ip_commit, _} ->
+          acc = Map.put(acc, ip_back, true) 
+          acc = Map.put(acc, ip_commit, true)
+        {op, ip_dest} when op in [:call] ->
+          acc = Map.put(acc, ip, true) # Callers can not be inlined because their 'ip' is wrong
+          acc = Map.put(acc, ip+1, true) # Instruction after a call can not be inlined because they are return dest
+          acc = Map.put(acc, ip_dest, true)
+        {op, ip_dest} when op in [:jump] ->
+          acc = Map.put(acc, ip_dest, true)
+        i -> acc
+      end
+    end)
+    |> Map.put(0, true)
+    |> Map.put(:fail, true)
   end
 
   def peephole(insts) do
     case insts do
-      # tail call optimization
-      [{:call, name}, {:return} | rest] ->
-        [{:jump, name}, {:nop} | peephole(rest)]
+      # tail call optimization: call + return = jump
+      [{ip1, {:call, ip}}, {ip2, {:return}} | rest] ->
+        [{ip1, {:jump, ip}}, {ip2,{:nop}} | peephole(rest)]
+      # squash choice/commit pairs that ended up back-to-back because of head fail optimization
+      [{ip1, {:choice, _ip_back, ip_commit, _}}, {ip2, {:commit}} | rest] ->
+        [{ip1, {:jump, ip_commit}}, {ip2, {:nop}} | peephole(rest)]
       [a | rest] -> [a | peephole(rest)]
       e -> e
     end
   end
 
   defp resolve_addresses(insts, program) do
-    Enum.with_index(insts, fn inst, ip ->
-      case inst do
+    Enum.map(insts, fn {ip, inst} ->
+      inst = case inst do
         {op, name} when op in [:call, :jump] ->
-          {ip, {op, program.symtab[name]}}
+          {op, program.symtab[name]}
 
-        inst ->
-          {ip, inst}
+        {:choice, off_back, off_commit, c} ->
+          {:choice, off_back+ip, off_commit+ip, c}
+
+        inst -> inst
       end
+      {ip, inst}
     end)
   end
   

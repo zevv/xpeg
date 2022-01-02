@@ -74,7 +74,7 @@ defmodule Xpeg do
   @doc false
   def trace(ip, cmd, s) do
     ip = to_string(ip) |> String.pad_leading(4, " ")
-    s = Enum.take(s, 20) |> inspect |> String.pad_trailing(20, " ")
+    s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
