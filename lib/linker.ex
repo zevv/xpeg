@@ -1,7 +1,7 @@
 defmodule Xpeg.Linker do
   @moduledoc false
 
-  defp link_one(program, rules, name) do
+  defp link_rule(program, rules, name) do
     if rules[name] == nil do
       raise("XPeg: referencing undefined rule '#{name}'")
     end
@@ -18,7 +18,7 @@ defmodule Xpeg.Linker do
         {:call, callname} ->
 
           if !Map.has_key?(program.symtab, callname) do
-            link_one(program, rules, callname)
+            link_rule(program, rules, callname)
           else
             program
           end
@@ -35,7 +35,7 @@ defmodule Xpeg.Linker do
       symtab: %{}
     }
 
-    program = link_one(program, grammar.rules, grammar.start)
+    program = link_rule(program, grammar.rules, grammar.start)
 
     insts = program.instructions
             |> peephole()

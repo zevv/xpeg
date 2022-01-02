@@ -152,21 +152,28 @@ defmodule Xpeg.Codegen do
     end
   end
 
-  def emit(program, options \\ []) do
-    cases =
-      program.instructions
-      |> Enum.map(fn {ip, inst} ->
-        body = emit_inst(ip, inst, options)
-        body =
-          if options[:trace] do
-            trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
-            {:__block__, [], [trace, body]}
-          else
-            body
-          end
-        {:->, [], [[ip], body]}
-      end)
+  
+  def trace_inst(body, ip, inst, options) do
+    if options[:trace] do
+      trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
+      {:__block__, [], [trace, body]}
+    else
+      body
+    end
+  end
 
+
+  def emit(program, options \\ []) do
+
+    # Generate case clauses
+    cases =
+      for {ip, inst} <- program.instructions do
+        emit_inst(ip, inst, options)
+        |> trace_inst(ip, inst, options)
+        |> then(&{:->, [], [[ip], &1]})
+      end
+
+    # Generate the main parser function
     f = quote do
       fn ctx, s, si, ip ->
         {ctx, s, si, ip} = case ip do unquote(cases) end
@@ -178,6 +185,7 @@ defmodule Xpeg.Codegen do
       end
     end
 
+    # Optionally dump generated code
     if options[:dump_code] do
       IO.puts(Macro.to_string(f))
     end
