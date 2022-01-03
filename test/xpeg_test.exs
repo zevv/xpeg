@@ -3,9 +3,9 @@ defmodule XpegTest do
   doctest Xpeg
   import Xpeg
 
-  def run(p, s, exp_status \\ :ok, exp_captures \\ []) do
+  def run(p, s, exp_result \\ :ok, exp_captures \\ []) do
     r = match(p, s)
-    assert(r.status == exp_status)
+    assert(r.result == exp_result)
     assert(r.captures == exp_captures)
   end
 

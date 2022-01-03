@@ -1,12 +1,6 @@
 defmodule Xpeg.Codegen do
   @moduledoc false
 
-  def trace(ip, cmd, s) do
-    ip = to_string(ip) |> String.pad_leading(4, " ")
-    s = inspect(s) |> String.slice(0, 20) |> String.pad_trailing(20, " ")
-    IO.puts(" #{ip} | #{s} | #{cmd} ")
-  end
-
   defp emit_inst(ip, inst, options) do
     case inst do
       {:nop} ->
