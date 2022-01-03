@@ -10,7 +10,6 @@ defmodule Xpeg do
     ret_stack: [],
     captures: [],
     cap_stack: [],
-    status: :running
   )
 
   @moduledoc """
@@ -130,14 +129,14 @@ defmodule Xpeg do
   def match(func, s, userdata \\ nil) do
     ctx = state(func: func, userdata: userdata)
 
-    {time, {ctx, match_len}} = :timer.tc(fn ->
+    {time, {status, ctx, match_len}} = :timer.tc(fn ->
       func.(ctx, String.to_charlist(s), 0, 0)
     end)
 
     ctx = collect_captures(ctx)
     %{
       captures: state(ctx, :captures),
-      status: state(ctx, :status),
+      status: status,
       time: time / 1.0e6,
       match_len: match_len,
       userdata: state(ctx, :userdata),

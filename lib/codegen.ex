@@ -61,8 +61,7 @@ defmodule Xpeg.Codegen do
               ctx = Xpeg.state(ctx, ret_stack: ret_stack)
               {ctx, s, si, ip}
             [] ->
-              ctx = Xpeg.state(ctx, status: :ok)
-              {ctx, s, si, ip}
+              {ctx, s, si, :ok}
           end
         end
 
@@ -152,8 +151,7 @@ defmodule Xpeg.Codegen do
               {ctx, frame.s, frame.si, frame.ip_back}
 
             [] ->
-              ctx = Xpeg.state(ctx, status: :error)
-              {ctx, s, si, 0}
+              {ctx, s, si, :error}
           end
         end
     end
@@ -219,9 +217,10 @@ defmodule Xpeg.Codegen do
       fn ctx, s, si, ip ->
         {ctx, s, si, ip} = case ip do unquote(clauses) end
         func = Xpeg.state(ctx, :func)
-        case Xpeg.state(ctx, :status) do
-          :running -> func.(ctx, s, si, ip)
-          _ -> {ctx, si}
+        case ip do
+          :ok -> {:ok, ctx, si}
+          :error -> {:error, ctx, si}
+          _ -> func.(ctx, s, si, ip)
         end
       end
     end
