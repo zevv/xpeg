@@ -134,5 +134,7 @@ defmodule XpegTest do
     run(patt('a' | 'b' * 'c' | 'd' * 'e' * 'f'), "a")
     run(patt('a' | 'b' * 'c' | 'd' * 'e' * 'f'), "bc")
     run(patt('a' | 'b' * 'c' | 'd' * 'e' * 'f'), "def")
+    run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ac")
+    run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ae")
   end
 end

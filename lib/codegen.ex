@@ -30,14 +30,13 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:set, cs, off_fail} ->
-        ip_fail = if off_fail == 0 do :fail else ip + off_fail end
+      {:set, cs} ->
         quote do
           case s do
             [c | s] when c in unquote(cs) ->
               si = si + 1
               {ctx, s, si, unquote(ip + 1)}
-            _ -> {ctx, s, si, unquote(ip_fail)}
+            _ -> {ctx, s, si, :fail}
           end
         end
 
@@ -155,6 +154,10 @@ defmodule Xpeg.Codegen do
 
   
   def trace_inst(code, ip, inst, options) do
+    code = quote do
+      _ = unquote("#{ip}: #{inspect(inst)}")
+      unquote(code)
+    end
     if options[:trace] do
       trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
       {:__block__, [], [trace, code]}
@@ -196,7 +199,7 @@ defmodule Xpeg.Codegen do
 
     # Generate code for the IR
     cases = Enum.reduce(program.instructions, %{}, fn {ip, inst}, cases ->
-      Map.put(cases, ip, 
+      Map.put(cases, ip,
         emit_inst(ip, inst, options)
         |> trace_inst(ip, inst, options)
       )

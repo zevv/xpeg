@@ -8,7 +8,7 @@ defmodule Xpeg.Parser do
   # instruction
   defp choice_commit(p, off_commit, off_back) do
     case p do
-      [p1 = {op, c, 0} | p2] when op in [ :chr, :set ] ->
+      [p1 = {op, c, 0} | p2] when op in [ :chr ] ->
         [{op, c, off_back}] ++  [{:choice, off_back-1, off_commit-1, c}] ++ p2 ++ [{:commit}]
       _ ->
         [{:choice, off_back, off_commit, nil}] ++ p ++ [{:commit}]
@@ -23,7 +23,7 @@ defmodule Xpeg.Parser do
   # kleene-star operator
   defp mk_star(p) do
     case p do
-      [{:set, cs, 0}] -> [{:span, cs}]
+      [{:set, cs}] -> [{:span, cs}]
       _ -> choice_commit(p, 0, length(p) + 2)
     end
   end
@@ -41,8 +41,8 @@ defmodule Xpeg.Parser do
   # minus, !p2 * p1, optimized for :set
   defp mk_minus(p1, p2) do
     case {p1, p2} do
-      {[{:set, cs1, 0}], [{:set, cs2, 0}]} -> [{:set, cs1 -- cs2, 0}]
-      {[{:set, cs1, 0}], [{:chr, c2, 0}]} -> [{:set, cs1 -- [c2], 0}]
+      {[{:set, cs1}], [{:set, cs2}]} -> [{:set, cs1 -- cs2}]
+      {[{:set, cs1}], [{:chr, c2, 0}]} -> [{:set, cs1 -- [c2]}]
       {_, _} -> mk_not(p2) ++ p1
     end
   end
@@ -107,7 +107,7 @@ defmodule Xpeg.Parser do
              {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
            end
          end)
-        [{:set, cs, 0}]
+        [{:set, cs}]
 
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
