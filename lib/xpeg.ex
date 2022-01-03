@@ -121,7 +121,7 @@ defmodule Xpeg do
   @doc """
   Execute a grammar against a subject string. The result is a map with the following fields:
   - `captures`: The captures made by the grammar
-  - `status`: either `:ok` or `:error`, depending on a successful match of the subject
+  - `result`: either `:ok` or `:error`, depending on a successful match of the subject
   - `time`: Time taken to match the subject (seconds)
   - `match_len`: The total number of UTF-8 characters matched
   - `userdata`: Returned userdata
@@ -129,14 +129,14 @@ defmodule Xpeg do
   def match(func, s, userdata \\ nil) do
     ctx = state(func: func, userdata: userdata)
 
-    {time, {status, ctx, match_len}} = :timer.tc(fn ->
+    {time, {result, ctx, match_len}} = :timer.tc(fn ->
       func.(ctx, String.to_charlist(s), 0, 0)
     end)
 
     ctx = collect_captures(ctx)
     %{
       captures: state(ctx, :captures),
-      status: status,
+      result: result,
       time: time / 1.0e6,
       match_len: match_len,
       userdata: state(ctx, :userdata),
