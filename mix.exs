@@ -4,7 +4,7 @@ defmodule Xpeg.MixProject do
   def project do
     [
       app: :xpeg,
-      version: "0.3.2",
+      version: "0.4.0",
       description: "Native Elixir PEG (Parsing Expression Grammars) string matching library",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
