@@ -5,7 +5,7 @@ defmodule Xpeg.Codegen do
     case inst do
       {:nop} ->
         quote do
-        {ctx, s, si, unquote(ip + 1)}
+          {ctx, s, si, unquote(ip + 1)}
         end
 
       {:any, n} ->
@@ -43,8 +43,10 @@ defmodule Xpeg.Codegen do
 
       {:span, cs} ->
         quote do
-          {s1, s} = Enum.split_while(s, fn c -> c in unquote(cs) end)
-          si = si + Enum.count(s1)
+          {s, si} = Enum.reduce_while(s, {s,si}, fn 
+            _, {[c|s],si} when c in unquote(cs) -> {:cont, {s,si+1}}
+            _, {s, si} -> {:halt, {s,si}}
+          end)
           {ctx, s, si, unquote(ip + 1)}
         end
 
