@@ -42,11 +42,13 @@ defmodule Xpeg.Linker do
             |> Enum.with_index(fn inst, ip -> {ip, inst} end)
             |> resolve_addresses(program)
             |> peephole()
-            |> dump(program.symtab, options)
 
-    %{program | 
+    program = %{program | 
       refs: count_refs(insts),
       instructions: insts ++ [{:fail, {:fail}}]}
+
+    dump(program, options)
+    program
   end
 
   def count_refs(insts) do
@@ -96,22 +98,22 @@ defmodule Xpeg.Linker do
     end)
   end
   
-  def dump(insts, symtab, options) do
-    revtab = Enum.reduce(symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
+  def dump(program, options) do
+    revtab = Enum.reduce(program.symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
     if options[:dump_ir] do
-      Enum.reduce(insts, [], fn {ip, inst}, lines ->
+      Enum.reduce(program.instructions, [], fn {ip, inst}, lines ->
         lines = if Map.has_key?(revtab, ip) do
           [ "#{revtab[ip]}:" | lines]
         else
           lines
         end
-        [ "  #{ip}  #{Xpeg.dump_inst(inst)}" | lines]
+        inlined = if program.refs[ip] do " " else "*" end
+        [ "  #{ip} #{inlined}  #{Xpeg.dump_inst(inst)}" | lines]
       end)
       |> Enum.reverse()
       |> Enum.join("\n")
       |> IO.puts
     end
-    insts
   end
 
 end
