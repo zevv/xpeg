@@ -119,8 +119,12 @@ defmodule Xpeg.Parser do
         List.duplicate(parse(grammar, p), n) |> List.flatten()
 
       # Capture
-      {:cap, [p]} ->
-        [{:capopen}] ++ parse(grammar, p) ++ [{:capclose}]
+      {:str, [p]} ->
+        [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, :str}]
+      {:int, [p]} ->
+        [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, :int}]
+      {:float, [p]} ->
+        [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, :float}]
 
       # Code block
       {:fn, [code]} ->

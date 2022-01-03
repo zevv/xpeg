@@ -43,9 +43,20 @@ defmodule Xpeg do
       {[{:open, s, si} | stack], _} ->
         collect_captures(stack, [{:open, s, si} | acc], caps)
 
-      {[{:close, _sc, sic} | stack], [{:open, so, sio} | acc]} ->
+      {[{:close, _sc, sic, type} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
-        cap = to_string(Enum.take(so, len))
+        l = Enum.take(so, len)
+
+        # Convert capture to requested type
+        cap = case type do
+          :str -> to_string(l)
+          :int -> :erlang.list_to_integer(l)
+          :float -> try do
+              :erlang.list_to_float(l)
+          rescue
+            _ -> elem(Float.parse(to_string(l)), 0)
+          end
+        end
         collect_captures(stack, acc, [cap | caps])
 
       {_, acc} ->

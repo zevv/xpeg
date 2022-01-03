@@ -148,31 +148,33 @@ XPeg patterns and grammars can be composed of the following parts:
 ```
 Atoms:
 
-     0              # matches always and consumes nothing
-     1              # matches any character
-     n              # matches exactly n characters
-    'x'             # matches literal character 'x'
-    "xyz"           # matches literal string "xyz"
-    {'x'..'y'}      # matches any character in the range from 'x'..'y'
-    {'x','y','z'}   # matches any character from the set
+      0              # matches always and consumes nothing
+      1              # matches any character
+      n              # matches exactly n characters
+     'x'             # matches literal character 'x'
+     "xyz"           # matches literal string "xyz"
+     {'x'..'y'}      # matches any character in the range from 'x'..'y'
+     {'x','y','z'}   # matches any character from the set
 
 Operators:
 
-     P1 * P2        # concatenation
-     P1 | P2        # ordered choice
-     P1 - P2        # matches P1 if P2 does not match
-    (P)             # grouping
-    !P              # matches everything but P
-    &P              # matches P without consuming input
- opt(P)             # matches P zero or one times
-star(P)             # matches P zero or more times
-    +P              # matches P one or more times
-     P[n]           # matches P n times
-     P[m..n]        # matches P m to n times
+      P1 * P2        # concatenation
+      P1 | P2        # ordered choice
+      P1 - P2        # matches P1 if P2 does not match
+     (P)             # grouping
+     !P              # matches everything but P
+     &P              # matches P without consuming input
+  opt(P)             # matches P zero or one times
+ star(P)             # matches P zero or more times
+     +P              # matches P one or more times
+      P[n]           # matches P n times
+      P[m..n]        # matches P m to n times
 
 Captures:
 
- cap(P)             # Adds the matched patterns to the captures list
+  str(P)             # Adds the matched string to the capture list
+  int(P)             # Adds the matched integer to the capture list
+float(P)             # Adds the matched float to the capture list
 
 Elixir function:
 

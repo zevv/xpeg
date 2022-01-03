@@ -107,10 +107,10 @@ defmodule Xpeg.Codegen do
           {ctx, s, si, unquote(ip + 1)}
         end
 
-      {:capclose} ->
+      {:capclose, type} ->
         quote do
           cap_stack = Xpeg.state(ctx, :cap_stack)
-          ctx = Xpeg.state(ctx, cap_stack: [{:close, s, si} | cap_stack])
+          ctx = Xpeg.state(ctx, cap_stack: [{:close, s, si, unquote(type)} | cap_stack])
           {ctx, s, si, unquote(ip + 1)}
         end
 

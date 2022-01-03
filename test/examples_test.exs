@@ -10,8 +10,8 @@ defmodule ExamplesTest do
       peg :dict do
         :dict <- :pair * star("," * :pair) * !1
         :pair <- :word * "=" * :number * fn [a, b | cs] -> [{b, a} | cs] end
-        :word <- cap(+{'a'..'z'})
-        :number <- cap(+{'0'..'9'}) * fn [v | cs] -> [String.to_integer(v) | cs] end
+        :word <- str(+{'a'..'z'})
+        :number <- int(+{'0'..'9'})
       end
 
     r = match(p, "grass=4,horse=1,star=2")
@@ -26,9 +26,9 @@ defmodule ExamplesTest do
         :exp <- :term * star(:exp_op)
         :term <- :factor * star(:term_op)
         :factor <- :number | "(" * :exp * ")"
-        :number <- cap(+{'0'..'9'}) * fn [v | cs] -> [String.to_integer(v) | cs] end
-        :term_op <- cap({'*', '/'}) * :factor * fn [b, op, a | cs] -> [{op, a, b} | cs] end
-        :exp_op <- cap({'+', '-'}) * :term * fn [b, op, a | cs] -> [{op, a, b} | cs] end
+        :number <- int(+{'0'..'9'})
+        :term_op <- str({'*', '/'}) * :factor * fn [b, op, a | cs] -> [{op, a, b} | cs] end
+        :exp_op <- str({'+', '-'}) * :term * fn [b, op, a | cs] -> [{op, a, b} | cs] end
       end
 
     cs = match(p, "1+(2-3*4)/5").captures
@@ -53,7 +53,7 @@ defmodule ExamplesTest do
         :unicode_escape <- 'u' * :xdigit[4]
         :escape <- '\\' * ({'"', '\\', '/', 'b', 'f', 'n', 'r', 't'} | :unicode_escape)
         :string_body <- star(:escape) * star(+({'\x20'..'\x7f'} - {'"'} - {'\\'}) * star(:escape))
-        :string <- '"' * cap(:string_body) * '"'
+        :string <- '"' * str(:string_body) * '"'
 
         # Numbers are converted to Elixir float
         :minus <- '-'
@@ -62,7 +62,7 @@ defmodule ExamplesTest do
         :exp_part <- {'e', 'E'} * opt({'+', '-'}) * +{'0'..'9'}
 
         :number <-
-          cap(opt(:minus) * :int_part * opt(:fract_part) * opt(:exp_part)) *
+          str(opt(:minus) * :int_part * opt(:fract_part) * opt(:exp_part)) *
             fn [v | cs] ->
               {v, _} = Float.parse(v)
               [v | cs]
