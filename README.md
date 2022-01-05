@@ -42,8 +42,8 @@ place the key-value pairs into a list of tuples:
 p = Xpeg.peg :dict do
   :dict <- :pair * star("," * :pair) * !1
   :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
-  :word <- cap(+{'a'..'z'})
-  :number <- cap(+{'0'..'9'}) * fn [v|cs] -> [String.to_integer(v) | cs] end
+  :word <- str(+{'a'..'z'})
+  :number <- int(+{'0'..'9'})
 end
 
 Xpeg.match(p, "grass=4,horse=1,star=2")
@@ -78,7 +78,7 @@ end
 
 
 During the execution of the grammar, matching parts of the subject strings can
-be _captured_ with the `cap()` operator. All captures are stored on the
+be _captured_ with the `str()` operator. All captures are stored on the
 `captures` list inside the parser state. This list is returned by the `match()`
 function, but can also be used by in-grammar functions to perform conversions
 or transformations.
@@ -89,7 +89,7 @@ the individual `:word:`s:
 ```elixir
 p = peg :list do
   :list <- :word * star( "," * :word )
-  :word <- cap(+{'a'..'z'})
+  :word <- str(+{'a'..'z'})
 end
 
 match(p, "one,two,three")
