@@ -8,7 +8,7 @@ defmodule Xpeg.Parser do
   # instruction
   defp choice_commit(p, off_commit, off_back) do
     case p do
-      [p1 = {op, c, 0} | p2] when op in [ :chr ] ->
+      [p1 = {op, c, 0} | p2] when op in [ :cahr ] ->
         [{op, c, off_back}] ++  [{:choice, off_back-1, off_commit-1, c}] ++ p2 ++ [{:commit}]
       _ ->
         [{:choice, off_back, off_commit, nil}] ++ p ++ [{:commit}]

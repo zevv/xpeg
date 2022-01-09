@@ -45,7 +45,7 @@ defmodule Xpeg do
 
       {[{:close, _sc, sic, type} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
-        l = Enum.take(so, len)
+         l = Enum.take(so, len)
 
         # Convert capture to requested type
         cap = case type do
@@ -83,23 +83,29 @@ defmodule Xpeg do
 
   @doc false
   def trace(ip, cmd, s) do
-    ip = to_string(ip) |> String.pad_leading(4, " ")
-    s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
-    IO.puts(" #{ip} | #{s} | #{cmd} ")
+    #ip = to_string(ip) |> String.pad_leading(4, " ")
+    #s = String.slice(s, 0, 20) |> inspect
+    #cmd = String.pad_trailing(cmd, 22)
+    #IO.puts(" #{ip} | #{cmd} -> #{s}")
   end
 
   @doc false
   defp make(start, rules, options) do
-    %{start: start, rules: rules}
+    ast = %{start: start, rules: rules}
     |> Xpeg.Linker.link_grammar(options)
-    |> Xpeg.Codegen.emit(options)
+    |> Xpeg.Codegen2.emit(options)
+    id = String.to_atom("#{inspect start}-#{inspect(make_ref)}")
+    {id, ast}
   end
 
   @doc """
   Define a PEG grammar which uses `start` as the initial rule
   """
   defmacro peg(start, _rules = [{:do, v}]) do
-    make(start, Xpeg.Parser.parse(v), [])
+    {id, ast} = make(start, Xpeg.Parser.parse(v), [])
+    quote do
+      Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
+    end
   end
 
   @doc """
@@ -118,7 +124,10 @@ defmodule Xpeg do
 
   """
   defmacro peg(start, options, [{:do, v}]) do
-    make(start, Xpeg.Parser.parse(v), options)
+    {id, ast} = make(start, Xpeg.Parser.parse(v), options)
+    quote do
+      Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
+    end
   end
 
   @doc """
@@ -126,7 +135,10 @@ defmodule Xpeg do
   """
 
   defmacro patt(v) do
-    make(:anon, %{anon: Xpeg.Parser.parse(%{}, v) ++ [{:return}]}, [])
+    {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(%{}, v) ++ [{:return}]}, [])
+    quote do
+      Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
+    end
   end
 
   @doc """
@@ -137,19 +149,30 @@ defmodule Xpeg do
   - `match_len`: The total number of UTF-8 characters matched
   - `userdata`: Returned userdata
   """
-  def match(func, s, userdata \\ nil) do
-    ctx = state(func: func, userdata: userdata)
+  def match(module, s, userdata \\ nil) do
 
-    {time, {result, ctx, match_len}} = :timer.tc(fn ->
-      func.(ctx, String.to_charlist(s), 0, 0)
+    ctx = state(func: nil, userdata: userdata)
+
+    module = elem(module, 1)
+    
+    #{time, {result, ctx, match_len}} = :timer.tc(fn ->
+
+    s = to_charlist(s)
+    {t1, _} = :erlang.statistics(:runtime)
+    {time, {ctx, s, si, result}} = :timer.tc(fn ->
+      module.parse(0, s, 0, ctx)
     end)
+    {t2, _} = :erlang.statistics(:runtime)
+
+    #  func.(ctx, String.to_charlist(s), 0, 0)
+    #end)
 
     ctx = collect_captures(ctx)
     %{
       captures: state(ctx, :captures),
       result: result,
-      time: time / 1.0e6,
-      match_len: match_len,
+      time: (t2-t1) / 1000,
+      match_len: si,
       userdata: state(ctx, :userdata),
     }
   end
