@@ -76,9 +76,10 @@ defmodule Xpeg do
   @doc false
   def dump_inst(inst) do
     case inst do
-      {:code, code} -> Macro.to_string(code)
-      inst -> Tuple.to_list(inst) |> Enum.map(&inspect/1) |> Enum.join(" ")
+      {:code, code} -> [:code, Macro.to_string(code)]
+      inst -> Tuple.to_list(inst)
     end
+    |> Enum.map(&inspect/1) |> Enum.join(" ")
   end
 
   @doc false
