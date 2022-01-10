@@ -1,13 +1,5 @@
 defmodule Xpeg do
 
-  require Record
-
-  @doc false
-  Record.defrecord(:state, 
-    userdata: nil,
-#    captures: [],
-  )
-
   @moduledoc """
 
   XPeg is a pure Elixir pattern matching library. It provides macros to compile
