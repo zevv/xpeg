@@ -180,24 +180,10 @@ defmodule Xpeg.Codegen do
     end
   end
 
-  
-  def trace_inst(code, ip, inst, options) do
-    code = quote do
-      _ = unquote("#{ip}: #{inspect(inst)}")
-      unquote(code)
-    end
-    if options[:trace] do
-      trace = quote do: Xpeg.trace(unquote(ip), unquote(Xpeg.dump_inst(inst)), s)
-      {:__block__, [], [trace, code]}
-    else
-      code
-    end
-  end
-
 
   def add_trace(options, ast, ip, inst) do
     if options[:trace] do
-      Macro.prewalk(ast, false, fn
+      {ast, _} = Macro.prewalk(ast, false, fn
         {:do, body}, false ->
           body = quote do
             Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
@@ -206,6 +192,7 @@ defmodule Xpeg.Codegen do
           {{:do, body}, true}
         e, done -> {e, done}
       end)
+      ast
     else
       ast
     end
