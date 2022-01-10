@@ -25,7 +25,7 @@ defmodule Xpeg.Codegen do
           def parse(unquote(ip), s=[_|s2], si, ctx, m) do
             parse(unquote(ip), s2, si+1, ctx, m-1)
           end
-          def parse(unquote(ip), [], si, ctx, _) do
+          def parse(unquote(ip), s=[], si, ctx, _) do
             parse(:fail, [], si, ctx)
           end
         end

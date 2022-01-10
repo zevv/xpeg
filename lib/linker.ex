@@ -38,7 +38,8 @@ defmodule Xpeg.Linker do
     program = link_rule(program, grammar.rules, grammar.start)
 
     insts = program.instructions
-            |> Enum.with_index(fn inst, ip -> {ip, inst} end)
+            |> Enum.with_index()
+            |> Enum.map(fn {inst, ip} -> {ip, inst} end)
             |> resolve_addresses(program)
             |> peephole()
 
