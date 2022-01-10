@@ -185,9 +185,6 @@ Elixir function:
 
 ## TODO
 
-XPeg is already useful, but still young and immature. Here's a list of things I want
-to fix:
-
 - I do not like the `star()` and `opt()` syntax of the AST, but given the limited
   support for prefix operators in Elixir I'm not yet sure how to make this better
 
