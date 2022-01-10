@@ -145,13 +145,14 @@ defmodule Xpeg do
     s = if is_binary(s) do to_charlist(s) else s end
 
     {t1, _} = :erlang.statistics(:runtime)
-    {ctx, _s, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
+    {ctx, rest, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
     {cap_stack, captures} = collect_captures(cap_stack, captures)
     {t2, _} = :erlang.statistics(:runtime)
 
     %{
       captures: captures,
       result: result,
+      rest: rest,
       time: (t2-t1) / 1000,
       match_len: si,
       userdata: ctx,
