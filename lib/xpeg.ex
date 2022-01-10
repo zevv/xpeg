@@ -83,17 +83,16 @@ defmodule Xpeg do
 
   @doc false
   def trace(ip, cmd, s) do
-    #ip = to_string(ip) |> String.pad_leading(4, " ")
-    #s = String.slice(s, 0, 20) |> inspect
-    #cmd = String.pad_trailing(cmd, 22)
-    #IO.puts(" #{ip} | #{cmd} -> #{s}")
+    ip = to_string(ip) |> String.pad_leading(4, " ")
+    s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
+    IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
 
   @doc false
   defp make(start, rules, options) do
     ast = %{start: start, rules: rules}
     |> Xpeg.Linker.link_grammar(options)
-    |> Xpeg.Codegen2.emit(options)
+    |> Xpeg.Codegen.emit(options)
     id = String.to_atom("#{inspect start}-#{inspect(make_ref)}")
     {id, ast}
   end
@@ -152,22 +151,15 @@ defmodule Xpeg do
   def match(module, s, userdata \\ nil) do
 
     ctx = state(func: nil, userdata: userdata)
-
     module = elem(module, 1)
     
-    #{time, {result, ctx, match_len}} = :timer.tc(fn ->
-
     s = to_charlist(s)
+
     {t1, _} = :erlang.statistics(:runtime)
-    {time, {ctx, s, si, result}} = :timer.tc(fn ->
-      module.parse(0, s, 0, ctx)
-    end)
+    {ctx, s, si, result} = module.parse(0, s, 0, ctx)
+    ctx = collect_captures(ctx)
     {t2, _} = :erlang.statistics(:runtime)
 
-    #  func.(ctx, String.to_charlist(s), 0, 0)
-    #end)
-
-    ctx = collect_captures(ctx)
     %{
       captures: state(ctx, :captures),
       result: result,

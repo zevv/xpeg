@@ -33,7 +33,6 @@ defmodule Xpeg.Linker do
     program = %{
       instructions: [],
       symtab: %{},
-      refs: %{},
     }
 
     program = link_rule(program, grammar.rules, grammar.start)
@@ -44,30 +43,10 @@ defmodule Xpeg.Linker do
             |> peephole()
 
     program = %{program | 
-      refs: count_refs(insts),
       instructions: insts ++ [{:fail, {:fail}}]}
 
     dump(program, options)
     program
-  end
-
-  def count_refs(insts) do
-    Enum.reduce(insts, %{}, fn {ip, inst}, acc ->
-      case inst do
-        {:choice, ip_back, ip_commit, _} ->
-          acc = Map.put(acc, ip_back, true) 
-          acc = Map.put(acc, ip_commit, true)
-        {op, ip_dest} when op in [:call] ->
-          acc = Map.put(acc, ip, true) # Callers can not be inlined because their 'ip' is wrong
-          acc = Map.put(acc, ip+1, true) # Instruction after a call can not be inlined because they are return dest
-          acc = Map.put(acc, ip_dest, true)
-        {op, ip_dest} when op in [:jump] ->
-          acc = Map.put(acc, ip_dest, true)
-        i -> acc
-      end
-    end)
-    |> Map.put(0, true)
-    |> Map.put(:fail, true)
   end
 
   def peephole(insts) do
@@ -107,8 +86,7 @@ defmodule Xpeg.Linker do
         else
           lines
         end
-        inlined = if program.refs[ip] do " " else "*" end
-        [ "  #{ip} #{inlined}  #{Xpeg.dump_inst(inst)}" | lines]
+        [ "  #{ip} #{Xpeg.dump_inst(inst)}" | lines]
       end)
       |> Enum.reverse()
       |> Enum.join("\n")

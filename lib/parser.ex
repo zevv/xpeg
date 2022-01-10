@@ -7,12 +7,7 @@ defmodule Xpeg.Parser do
   # offsets to the backtrack and commit targets, relative to the commit
   # instruction
   defp choice_commit(p, off_commit, off_back) do
-    case p do
-      [p1 = {op, c, 0} | p2] when op in [ :cahr ] ->
-        [{op, c, off_back}] ++  [{:choice, off_back-1, off_commit-1, c}] ++ p2 ++ [{:commit}]
-      _ ->
-        [{:choice, off_back, off_commit, nil}] ++ p ++ [{:commit}]
-    end
+    [{:choice, off_back, off_commit, nil}] ++ p ++ [{:commit}]
   end
 
   # Generic ordered choice
@@ -42,7 +37,7 @@ defmodule Xpeg.Parser do
   defp mk_minus(p1, p2) do
     case {p1, p2} do
       {[{:set, cs1}], [{:set, cs2}]} -> [{:set, cs1 -- cs2}]
-      {[{:set, cs1}], [{:chr, c2, 0}]} -> [{:set, cs1 -- [c2]}]
+      {[{:set, cs1}], [{:chr, c2}]} -> [{:set, cs1 -- [c2]}]
       {_, _} -> mk_not(p2) ++ p1
     end
   end
@@ -155,8 +150,8 @@ defmodule Xpeg.Parser do
         end
       0 -> [{:nop}]
       v when is_number(v) -> [{:any, v}]
-      v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c, 0} end)
-      [v] -> [{:chr, v, 0}]
+      v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
+      [v] -> [{:chr, v}]
       v -> raise("Unhandled lit: #{inspect(v)}")
     end
   end

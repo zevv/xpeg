@@ -2,61 +2,74 @@ defmodule Xpeg.Codegen do
   @moduledoc false
 
   defp emit_inst(ip, inst, options) do
+
     case inst do
       {:nop} ->
-        quote do
-          {ctx, s, si, unquote(ip + 1)}
-        end
-
-      {:any, n} ->
-        quote do
-          if Enum.count(s) >= unquote(n) do
-            s = Enum.drop(s, unquote(n))
-            si = si + unquote(n)
-            {ctx, s, si, unquote(ip + 1)}
-          else
-            {ctx, s, si, :fail}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            parse(unquote(ip+1), s, si, ctx)
           end
         end
 
-      {:chr, c, off_fail} ->
-        ip_fail = if off_fail == 0 do :fail else ip + off_fail end
-        quote do
-          case s do
-            [unquote(c) | s] ->
-              si = si + 1
-              {ctx, s, si, unquote(ip + 1)}
-            _ -> {ctx, s, si, unquote(ip_fail)}
+      {:any, n} ->
+        quote location: :keep do
+          def parse(unquote(ip), s=[_|s2], si, ctx) when unquote(n) == 1 do
+            parse(unquote(ip+1), s2, si+1, ctx)
+          end
+          def parse(unquote(ip), s, si, ctx) do
+            parse(unquote(ip), s, si, ctx, unquote(n))
+          end
+          def parse(unquote(ip), s=[_|s2], si, ctx, 1) do
+            parse(unquote(ip+1), s2, si+1, ctx)
+          end
+          def parse(unquote(ip), s=[_|s2], si, ctx, m) do
+            parse(unquote(ip), s2, si+1, ctx, m-1)
+          end
+          def parse(unquote(ip), [], si, ctx, _) do
+            parse(:fail, [], si, ctx)
+          end
+        end
+
+      {:chr, cmatch} ->
+        quote location: :keep do
+          def parse(unquote(ip), s=[c|s2], si, ctx) when c == unquote(cmatch) do
+            parse(unquote(ip+1), s2, si+1, ctx)
+          end
+          def parse(unquote(ip), s, si, ctx) do
+            parse(:fail, s, si, ctx)
           end
         end
 
       {:set, cs} ->
-        quote do
-          case s do
-            [c | s] when c in unquote(cs) ->
-              si = si + 1
-              {ctx, s, si, unquote(ip + 1)}
-            _ -> {ctx, s, si, :fail}
+        quote location: :keep do
+          def parse(unquote(ip), s=[c|s2], si, ctx) when c in unquote(cs) do
+            parse(unquote(ip+1), s2, si+1, ctx)
+          end
+          def parse(unquote(ip), s, si, ctx) do
+            parse(:fail, s, si, ctx)
           end
         end
 
       {:span, cs} ->
-        quote do
-          {s, si} = Enum.reduce_while(s, {s,si}, fn 
-            _, {[c|s],si} when c in unquote(cs) -> {:cont, {s,si+1}}
-            _, {s, si} -> {:halt, {s,si}}
-          end)
-          {ctx, s, si, unquote(ip + 1)}
+        quote location: :keep do
+          def parse(unquote(ip), s=[c|s2], si, ctx) when c in unquote(cs) do
+            parse(unquote(ip), s2, si+1, ctx)
+          end
+          def parse(unquote(ip), s, si, ctx) do
+            parse(unquote(ip+1), s, si, ctx)
+          end
         end
 
       {:return} ->
-        quote do
-          case Xpeg.state(ctx, :ret_stack) do
-            [ip | ret_stack] ->
-              ctx = Xpeg.state(ctx, ret_stack: ret_stack)
-              {ctx, s, si, ip}
-            [] ->
-              {ctx, s, si, :ok}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            case Xpeg.state(ctx, :ret_stack) do
+              [ip | ret_stack] ->
+                ctx = Xpeg.state(ctx, ret_stack: ret_stack)
+                parse(ip, s, si, ctx)
+              [] ->
+                {ctx, s, si, :ok}
+            end
           end
         end
 
@@ -65,52 +78,63 @@ defmodule Xpeg.Codegen do
           nil -> quote do s end
           c -> quote do [unquote(c) | s] end # Restore consumed c for headfails
         end
-        quote do
-          frame = %{
-            ip_back: unquote(ip_back),
-            ip_commit: unquote(ip_commit),
-            ret_stack: Xpeg.state(ctx, :ret_stack),
-            cap_stack: Xpeg.state(ctx, :cap_stack),
-            s: unquote(ssave),
-            si: si
-          }
-
-          back_stack = Xpeg.state(ctx, :back_stack)
-          ctx = Xpeg.state(ctx, back_stack: [frame | back_stack])
-          {ctx, s, si, unquote(ip + 1)}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            frame = %{
+              ip_back: unquote(ip_back),
+              ip_commit: unquote(ip_commit),
+              ret_stack: Xpeg.state(ctx, :ret_stack),
+              cap_stack: Xpeg.state(ctx, :cap_stack),
+              s: unquote(ssave),
+              si: si
+            }
+            back_stack = Xpeg.state(ctx, :back_stack)
+            ctx = Xpeg.state(ctx, back_stack: [frame | back_stack])
+            parse(unquote(ip+1), s, si, ctx)
+          end
         end
 
       {:commit} ->
-        quote do
-          [frame | back_stack] = Xpeg.state(ctx, :back_stack)
-          ctx = Xpeg.state(ctx, back_stack: back_stack)
-          {ctx, s, si, frame.ip_commit}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            [frame | back_stack] = Xpeg.state(ctx, :back_stack)
+            ctx = Xpeg.state(ctx, back_stack: back_stack)
+            parse(frame.ip_commit, s, si, ctx)
+          end
         end
 
       {:call, addr} ->
-        quote do
-          ret_stack = Xpeg.state(ctx, :ret_stack)
-          ctx = Xpeg.state(ctx, ret_stack: [ip+1 | ret_stack])
-          {ctx, s, si, unquote(addr)}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            ret_stack = Xpeg.state(ctx, :ret_stack)
+            ctx = Xpeg.state(ctx, ret_stack: [unquote(ip+1) | ret_stack])
+            parse(unquote(addr), s, si, ctx)
+          end
         end
 
       {:jump, addr} ->
-        quote do
-          {ctx, s, si, unquote(addr)}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            parse(unquote(addr), s, si, ctx)
+          end
         end
 
       {:capopen} ->
-        quote do
-          cap_stack = Xpeg.state(ctx, :cap_stack)
-          ctx = Xpeg.state(ctx, cap_stack: [{:open, s, si} | cap_stack])
-          {ctx, s, si, unquote(ip + 1)}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            cap_stack = Xpeg.state(ctx, :cap_stack)
+            ctx = Xpeg.state(ctx, cap_stack: [{:open, s, si} | cap_stack])
+            parse(unquote(ip+1), s, si, ctx)
+          end
         end
 
       {:capclose, type} ->
-        quote do
-          cap_stack = Xpeg.state(ctx, :cap_stack)
-          ctx = Xpeg.state(ctx, cap_stack: [{:close, s, si, unquote(type)} | cap_stack])
-          {ctx, s, si, unquote(ip + 1)}
+      quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            cap_stack = Xpeg.state(ctx, :cap_stack)
+            ctx = Xpeg.state(ctx, cap_stack: [{:close, s, si, unquote(type)} | cap_stack])
+            parse(unquote(ip+1), s, si, ctx)
+          end
         end
 
       {:code, code} ->
@@ -126,27 +150,31 @@ defmodule Xpeg.Codegen do
           end
         end
 
-        quote do
-          ctx = Xpeg.collect_captures(ctx)
-          func = unquote(code)
-          unquote(body)
-          {ctx, s, si, unquote(ip + 1)}
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            ctx = Xpeg.collect_captures(ctx)
+            func = unquote(code)
+            unquote(body)
+            parse(unquote(ip+1), s, si, ctx)
+          end
         end
 
       {:fail} ->
-        quote do
-          case Xpeg.state(ctx, :back_stack) do
-            [frame | back_stack] ->
-              ctx = Xpeg.state(ctx,
-                back_stack: back_stack,
-                ret_stack: frame.ret_stack,
-                cap_stack: frame.cap_stack
-              )
+        quote location: :keep do
+          def parse(unquote(ip), s, si, ctx) do
+            case Xpeg.state(ctx, :back_stack) do
+              [frame | back_stack] ->
+                ctx = Xpeg.state(ctx,
+                  back_stack: back_stack,
+                  ret_stack: frame.ret_stack,
+                  cap_stack: frame.cap_stack
+                )
 
-              {ctx, frame.s, frame.si, frame.ip_back}
+                parse(frame.ip_back, frame.s, frame.si, ctx)
 
-            [] ->
-              {ctx, s, si, :error}
+              [] ->
+                {ctx, s, si, :error}
+            end
           end
         end
     end
@@ -167,69 +195,44 @@ defmodule Xpeg.Codegen do
   end
 
 
-  def inline_one(ip, code, cases, refs, top) do
-    if top and not Map.has_key?(refs, ip) do
-      quote do :inlined end
-    else
-      Macro.postwalk(code, fn n ->
-        case n do
-          {:{}, [], [{:ctx, _, _}, _, _, ip_next]} ->
-            if is_number(ip_next) and not Map.has_key?(refs, ip_next) do
-              inline_one(ip_next, cases[ip_next], cases, refs, false)
-            else
-              n
-            end
-          n ->
-            n
-        end
+  def add_trace(options, ast, ip, inst) do
+    if options[:trace] do
+      Macro.prewalk(ast, false, fn
+        {:do, body}, false ->
+          body = quote do
+            Xpeg.trace(unquote(ip), unquote(inspect(inst)), s)
+            unquote(body)
+          end
+          {{:do, body}, true}
+        e, done -> {e, done}
       end)
+    else
+      ast
     end
-  end
-
-
-  def inline(cases, refs) do
-    Enum.map(cases, fn {ip, code} ->
-      {ip, inline_one(ip, code, cases, refs, true)}
-    end)
-    |> Enum.filter(fn {ip, code} -> code != :inlined end)
   end
 
 
   def emit(program, options \\ []) do
 
-    # Generate code for the IR
-    cases = Enum.reduce(program.instructions, %{}, fn {ip, inst}, cases ->
-      Map.put(cases, ip,
-        emit_inst(ip, inst, options)
-        |> trace_inst(ip, inst, options)
-      )
-    end)
-    |> inline(program.refs)
-
-    # Generate case clauses
-    clauses = Enum.map(cases, fn {ip, code} ->
-      {:->, [], [[ip], code]}
-    end)
-
-    # Generate the main parser function
-    f = quote do
-      fn ctx, s, si, ip ->
-        {ctx, s, si, ip} = case ip do unquote(clauses) end
-        func = Xpeg.state(ctx, :func)
-        case ip do
-          :ok -> {:ok, ctx, si}
-          :error -> {:error, ctx, si}
-          _ -> func.(ctx, s, si, ip)
-        end
+    ast = Enum.reduce(program.instructions, [], fn {ip, inst}, defs ->
+      ast = emit_inst(ip, inst, options)
+      case ast do
+        {:__block__, _, subs} ->
+          Enum.map(subs, &add_trace(options, &1, ip, inst)) ++ defs
+        _ -> [add_trace(options, ast, ip, inst) | defs]
       end
-    end
+    end)
+   
+    ast = {
+      :__block__, [], [quote do require Xpeg end ] ++ ast
+    }
 
-    # Optionally dump generated code
     if options[:dump_code] do
-      IO.puts(Macro.to_string(f))
+      IO.puts(Macro.to_string(ast))
     end
 
-    f
+    Macro.escape(ast)
+
   end
 
 end
