@@ -54,7 +54,7 @@ defmodule Xpeg.Linker do
     case insts do
       # tail call optimization: call + return = jump
       [{ip1, {:call, ip}}, {ip2, {:return}} | rest] ->
-        [{ip1, {:jump, ip}}, {ip2,{:nop}} | peephole(rest)]
+        [{ip1, {:jump, ip}}, {ip2, {:return}} | peephole(rest)]
       # squash choice/commit pairs that ended up back-to-back because of head fail optimization
       [{ip1, {:choice, _ip_back, ip_commit, _}}, {ip2, {:commit}} | rest] ->
         [{ip1, {:jump, ip_commit}}, {ip2, {:nop}} | peephole(rest)]
