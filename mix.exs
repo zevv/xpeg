@@ -40,8 +40,8 @@ defmodule Xpeg.MixProject do
     [
       {:ex_doc, "~> 0.14"},
       {:exprof, "~> 0.2.0"},
-      #{:poison, "~> 5.0"},
-      #{:jason, "~> 1.2"},
+      {:poison, "~> 5.0"},
+      {:jason, "~> 1.2"},
     ]
   end
 end

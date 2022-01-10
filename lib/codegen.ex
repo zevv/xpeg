@@ -6,69 +6,68 @@ defmodule Xpeg.Codegen do
     case inst do
       {:nop} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            parse(unquote(ip+1), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:any, n} ->
         quote location: :keep do
-          def parse(unquote(ip), s=[_|s2], si, ctx) when unquote(n) == 1 do
-            parse(unquote(ip+1), s2, si+1, ctx)
+          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures) when unquote(n) == 1 do
+            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
           end
-          def parse(unquote(ip), s, si, ctx) do
-            parse(unquote(ip), s, si, ctx, unquote(n))
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures, unquote(n))
           end
-          def parse(unquote(ip), s=[_|s2], si, ctx, 1) do
-            parse(unquote(ip+1), s2, si+1, ctx)
+          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures, 1) do
+            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
           end
-          def parse(unquote(ip), s=[_|s2], si, ctx, m) do
-            parse(unquote(ip), s2, si+1, ctx, m-1)
+          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures, m) do
+            parse(unquote(ip), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures, m-1)
           end
-          def parse(unquote(ip), s=[], si, ctx, _) do
-            parse(:fail, [], si, ctx)
+          def parse(unquote(ip), s=[], si, ctx, back_stack, ret_stack, cap_stack, captures, _) do
+            parse(:fail, [], si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:chr, cmatch} ->
         quote location: :keep do
-          def parse(unquote(ip), s=[c|s2], si, ctx) when c == unquote(cmatch) do
-            parse(unquote(ip+1), s2, si+1, ctx)
+          def parse(unquote(ip), s=[c|s2], si, ctx, back_stack, ret_stack, cap_stack, captures) when c == unquote(cmatch) do
+            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
           end
-          def parse(unquote(ip), s, si, ctx) do
-            parse(:fail, s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(:fail, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:set, cs} ->
         quote location: :keep do
-          def parse(unquote(ip), s=[c|s2], si, ctx) when c in unquote(cs) do
-            parse(unquote(ip+1), s2, si+1, ctx)
+          def parse(unquote(ip), s=[c|s2], si, ctx, back_stack, ret_stack, cap_stack, captures) when c in unquote(cs) do
+            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
           end
-          def parse(unquote(ip), s, si, ctx) do
-            parse(:fail, s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(:fail, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:span, cs} ->
         quote location: :keep do
-          def parse(unquote(ip), s=[c|s2], si, ctx) when c in unquote(cs) do
-            parse(unquote(ip), s2, si+1, ctx)
+          def parse(unquote(ip), s=[c|s2], si, ctx, back_stack, ret_stack, cap_stack, captures) when c in unquote(cs) do
+            parse(unquote(ip), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
           end
-          def parse(unquote(ip), s, si, ctx) do
-            parse(unquote(ip+1), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:return} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            case Xpeg.state(ctx, :ret_stack) do
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            case ret_stack do
               [ip | ret_stack] ->
-                ctx = Xpeg.state(ctx, ret_stack: ret_stack)
-                parse(ip, s, si, ctx)
+                parse(ip, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
               [] ->
-                {ctx, s, si, :ok}
+                {ctx, s, si, :ok, cap_stack, captures}
             end
           end
         end
@@ -79,101 +78,89 @@ defmodule Xpeg.Codegen do
           c -> quote do [unquote(c) | s] end # Restore consumed c for headfails
         end
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             frame = %{
               ip_back: unquote(ip_back),
               ip_commit: unquote(ip_commit),
-              ret_stack: Xpeg.state(ctx, :ret_stack),
-              cap_stack: Xpeg.state(ctx, :cap_stack),
+              ret_stack: ret_stack,
+              cap_stack: cap_stack,
               s: unquote(ssave),
               si: si
             }
-            back_stack = Xpeg.state(ctx, :back_stack)
-            ctx = Xpeg.state(ctx, back_stack: [frame | back_stack])
-            parse(unquote(ip+1), s, si, ctx)
+            back_stack = [frame | back_stack]
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:commit} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            [frame | back_stack] = Xpeg.state(ctx, :back_stack)
-            ctx = Xpeg.state(ctx, back_stack: back_stack)
-            parse(frame.ip_commit, s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            [frame | back_stack] = back_stack
+            parse(frame.ip_commit, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:call, addr} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            ret_stack = Xpeg.state(ctx, :ret_stack)
-            ctx = Xpeg.state(ctx, ret_stack: [unquote(ip+1) | ret_stack])
-            parse(unquote(addr), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            ret_stack = [unquote(ip+1) | ret_stack]
+            parse(unquote(addr), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:jump, addr} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            parse(unquote(addr), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            parse(unquote(addr), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:capopen} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            cap_stack = Xpeg.state(ctx, :cap_stack)
-            ctx = Xpeg.state(ctx, cap_stack: [{:open, s, si} | cap_stack])
-            parse(unquote(ip+1), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            cap_stack = [{:open, s, si} | cap_stack]
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:capclose, type} ->
       quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            cap_stack = Xpeg.state(ctx, :cap_stack)
-            ctx = Xpeg.state(ctx, cap_stack: [{:close, s, si, unquote(type)} | cap_stack])
-            parse(unquote(ip+1), s, si, ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            cap_stack = [{:close, s, si, unquote(type)} | cap_stack]
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:code, code} ->
         body = if options[:userdata] do
           quote do
-            {captures, data} = func.(Xpeg.state(ctx, :captures), Xpeg.state(ctx, :userdata))
-            ctx = Xpeg.state(ctx, captures: captures, userdata: data)
+            {captures, ctx} = func.(captures, ctx)
           end
         else
           quote do
-            captures = func.(Xpeg.state(ctx, :captures))
-            ctx = Xpeg.state(ctx, captures: captures)
+            captures = func.(captures)
           end
         end
 
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            ctx = Xpeg.collect_captures(ctx)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            {cap_stack, captures} = Xpeg.collect_captures(cap_stack, captures)
             func = unquote(code)
             unquote(body)
-            parse(unquote(ip+1), s, si, ctx)
+            parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
       {:fail} ->
         quote location: :keep do
-          def parse(unquote(ip), s, si, ctx) do
-            case Xpeg.state(ctx, :back_stack) do
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
+            case back_stack do
               [frame | back_stack] ->
-                ctx = Xpeg.state(ctx,
-                  back_stack: back_stack,
-                  ret_stack: frame.ret_stack,
-                  cap_stack: frame.cap_stack
-                )
-
-                parse(frame.ip_back, frame.s, frame.si, ctx)
-
+                cap_stack = frame.cap_stack
+                ret_stack = frame.ret_stack
+                parse(frame.ip_back, frame.s, frame.si, ctx, back_stack, ret_stack, cap_stack, captures)
               [] ->
-                {ctx, s, si, :error}
+                {ctx, s, si, :error, cap_stack, captures}
             end
           end
         end

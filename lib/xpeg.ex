@@ -4,12 +4,8 @@ defmodule Xpeg do
 
   @doc false
   Record.defrecord(:state, 
-    func: nil,
     userdata: nil,
-    back_stack: [],
-    ret_stack: [],
-    captures: [],
-    cap_stack: [],
+#    captures: [],
   )
 
   @moduledoc """
@@ -38,10 +34,10 @@ defmodule Xpeg do
   """
 
   @doc false
-  defp collect_captures(stack, acc, caps) do
+  defp collect(stack, acc, caps) do
     case {stack, acc} do
       {[{:open, s, si} | stack], _} ->
-        collect_captures(stack, [{:open, s, si} | acc], caps)
+        collect(stack, [{:open, s, si} | acc], caps)
 
       {[{:close, _sc, sic, type} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
@@ -57,7 +53,7 @@ defmodule Xpeg do
             _ -> elem(Float.parse(to_string(l)), 0)
           end
         end
-        collect_captures(stack, acc, [cap | caps])
+        collect(stack, acc, [cap | caps])
 
       {_, acc} ->
         {acc, caps}
@@ -65,12 +61,12 @@ defmodule Xpeg do
   end
 
   @doc false
-  def collect_captures(ctx) do
+  def collect_captures(cap_stack, captures_prev) do
     {cap_stack, captures} =
-      state(ctx, :cap_stack)
+      cap_stack
       |> Enum.reverse()
-      |> collect_captures([], [])
-    state(ctx, cap_stack: cap_stack, captures: captures ++ state(ctx, :captures))
+      |> collect([], [])
+    {cap_stack, captures ++ captures_prev}
   end
 
   @doc false
@@ -151,23 +147,24 @@ defmodule Xpeg do
   """
   def match(module, s, userdata \\ nil) do
 
-    ctx = state(func: nil, userdata: userdata)
+    ctx = userdata
     module = elem(module, 1)
-    
-    s = to_charlist(s)
+
+    s = if is_binary(s) do to_charlist(s) else s end
 
     {t1, _} = :erlang.statistics(:runtime)
-    {ctx, _s, si, result} = module.parse(0, s, 0, ctx)
-    ctx = collect_captures(ctx)
+    {ctx, _s, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
+    {cap_stack, captures} = collect_captures(cap_stack, captures)
     {t2, _} = :erlang.statistics(:runtime)
 
     %{
-      captures: state(ctx, :captures),
+      captures: captures,
       result: result,
       time: (t2-t1) / 1000,
       match_len: si,
-      userdata: state(ctx, :userdata),
+      userdata: ctx,
     }
+
   end
 
 end
