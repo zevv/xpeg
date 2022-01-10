@@ -4,7 +4,7 @@ defmodule Xpeg.MixProject do
   def project do
     [
       app: :xpeg,
-      version: "0.5.2",
+      version: "0.5.3",
       description: "Native Elixir PEG (Parsing Expression Grammars) string matching library",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
@@ -16,6 +16,14 @@ defmodule Xpeg.MixProject do
       docs: [
         extras: ["README.md"],
         logo: "xpeg.png"
+      ],
+      files: [
+        "README.md",
+        "mix*",
+        "lib/codegen.ex",
+        "lib/linker.ex",
+        "lib/parser.ex",
+        "lib/xpeg.ex"
       ]
     ]
   end
