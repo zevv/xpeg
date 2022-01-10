@@ -209,7 +209,7 @@ defmodule Xpeg.Codegen do
         _ -> [add_trace(options, ast, ip, inst) | defs]
       end
     end)
-   
+
     ast = {
       :__block__, [], [quote do require Xpeg end ] ++ ast
     }

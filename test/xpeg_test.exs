@@ -140,7 +140,7 @@ defmodule XpegTest do
 
   test "peephole bug" do
     p = peg :flop do
-      :flop <- "3" | (:two) 
+      :flop <- "3" | (:two)
       :two <- "2"
     end
     assert(match(p, "3").result == :ok)

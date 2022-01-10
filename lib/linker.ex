@@ -43,7 +43,7 @@ defmodule Xpeg.Linker do
             |> resolve_addresses(program)
             |> peephole()
 
-    program = %{program | 
+    program = %{program |
       instructions: insts ++ [{:fail, {:fail}}]}
 
     dump(program, options)
@@ -77,7 +77,7 @@ defmodule Xpeg.Linker do
       {ip, inst}
     end)
   end
-  
+
   def dump(program, options) do
     revtab = Enum.reduce(program.symtab, %{}, fn {k, v}, map -> Map.put(map, v, k) end)
     if options[:dump_ir] do
