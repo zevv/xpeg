@@ -93,7 +93,7 @@ defmodule Xpeg do
     ast = %{start: start, rules: rules}
     |> Xpeg.Linker.link_grammar(options)
     |> Xpeg.Codegen.emit(options)
-    id = String.to_atom("#{inspect start}-#{inspect(make_ref)}")
+    id = String.to_atom("#{inspect start}-#{inspect(make_ref())}")
     {id, ast}
   end
 
@@ -156,7 +156,7 @@ defmodule Xpeg do
     s = to_charlist(s)
 
     {t1, _} = :erlang.statistics(:runtime)
-    {ctx, s, si, result} = module.parse(0, s, 0, ctx)
+    {ctx, _s, si, result} = module.parse(0, s, 0, ctx)
     ctx = collect_captures(ctx)
     {t2, _} = :erlang.statistics(:runtime)
 
