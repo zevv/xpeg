@@ -137,4 +137,14 @@ defmodule XpegTest do
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ac")
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ae")
   end
+
+  test "peephole bug" do
+    p = peg :flop do
+      :flop <- "3" | (:two) 
+      :two <- "2"
+    end
+    assert(match(p, "3").result == :ok)
+    assert(match(p, "2").result == :ok)
+  end
+
 end
