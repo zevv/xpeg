@@ -13,20 +13,15 @@ defmodule Xpeg.Codegen do
 
       {:any, n} ->
         quote location: :keep do
-          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures) when unquote(n) == 1 do
-            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
-          end
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures, unquote(n))
           end
-          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures, 1) do
-            parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
-          end
-          def parse(unquote(ip), s=[_|s2], si, ctx, back_stack, ret_stack, cap_stack, captures, m) do
-            parse(unquote(ip), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures, m-1)
-          end
-          def parse(unquote(ip), s=[], si, ctx, back_stack, ret_stack, cap_stack, captures, _) do
-            parse(:fail, [], si, ctx, back_stack, ret_stack, cap_stack, captures)
+          def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures, n) do
+            case {s, n} do
+              {[_|s2], 1} -> parse(unquote(ip+1), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures)
+              {[_|s2], m} -> parse(unquote(ip), s2, si+1, ctx, back_stack, ret_stack, cap_stack, captures, m-1)
+              {[], _} -> parse(:fail, [], si, ctx, back_stack, ret_stack, cap_stack, captures)
+            end
           end
         end
 
