@@ -7,7 +7,7 @@ defmodule Xpeg.Parser do
   # offsets to the backtrack and commit targets, relative to the commit
   # instruction
   defp choice_commit(p, off_commit, off_back) do
-    [{:choice, off_back, off_commit, nil}] ++ p ++ [{:commit}]
+    [{:choice, off_back, off_commit}] ++ p ++ [{:commit}]
   end
 
   # Generic ordered choice

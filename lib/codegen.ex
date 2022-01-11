@@ -67,7 +67,7 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:choice, ip_back, ip_commit, _c} ->
+      {:choice, ip_back, ip_commit} ->
         quote location: :keep do
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             frame = { unquote(ip_back), unquote(ip_commit), ret_stack, cap_stack, s, si }

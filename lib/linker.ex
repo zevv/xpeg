@@ -56,7 +56,7 @@ defmodule Xpeg.Linker do
       [{ip1, {:call, ip}}, {ip2, {:return}} | rest] ->
         [{ip1, {:jump, ip}}, {ip2, {:return}} | peephole(rest)]
       # squash choice/commit pairs that ended up back-to-back because of head fail optimization
-      [{ip1, {:choice, _ip_back, ip_commit, _}}, {ip2, {:commit}} | rest] ->
+      [{ip1, {:choice, _ip_back, ip_commit}}, {ip2, {:commit}} | rest] ->
         [{ip1, {:jump, ip_commit}}, {ip2, {:nop}} | peephole(rest)]
       [a | rest] -> [a | peephole(rest)]
       e -> e
@@ -69,8 +69,8 @@ defmodule Xpeg.Linker do
         {op, name} when op in [:call, :jump] ->
           {op, program.symtab[name]}
 
-        {:choice, off_back, off_commit, c} ->
-          {:choice, off_back+ip, off_commit+ip, c}
+        {:choice, off_back, off_commit} ->
+          {:choice, off_back+ip, off_commit+ip}
 
         inst -> inst
       end
