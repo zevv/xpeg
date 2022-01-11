@@ -73,20 +73,9 @@ defmodule Xpeg.Codegen do
         end
 
       {:choice, ip_back, ip_commit, c} ->
-        ssave = case c do
-          nil -> quote do s end
-          c -> quote do [unquote(c) | s] end # Restore consumed c for headfails
-        end
         quote location: :keep do
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
-            frame = %{
-              ip_back: unquote(ip_back),
-              ip_commit: unquote(ip_commit),
-              ret_stack: ret_stack,
-              cap_stack: cap_stack,
-              s: unquote(ssave),
-              si: si
-            }
+            frame = { unquote(ip_back), unquote(ip_commit), ret_stack, cap_stack, s, si }
             back_stack = [frame | back_stack]
             parse(unquote(ip+1), s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
@@ -96,7 +85,8 @@ defmodule Xpeg.Codegen do
         quote location: :keep do
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             [frame | back_stack] = back_stack
-            parse(frame.ip_commit, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
+            { _, ip, _, _, _, _ } = frame
+            parse(ip, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
           end
         end
 
@@ -156,9 +146,8 @@ defmodule Xpeg.Codegen do
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             case back_stack do
               [frame | back_stack] ->
-                cap_stack = frame.cap_stack
-                ret_stack = frame.ret_stack
-                parse(frame.ip_back, frame.s, frame.si, ctx, back_stack, ret_stack, cap_stack, captures)
+                { ip, _, ret_stack, cap_stack, s, si } = frame
+                parse(ip, s, si, ctx, back_stack, ret_stack, cap_stack, captures)
               [] ->
                 {ctx, s, si, :error, cap_stack, captures}
             end
