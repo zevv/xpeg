@@ -1,7 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-beta-yellow.svg)
 
-![XPeg](xpeg.png)
+![Xpeg](xpeg.png)
 
 
 More documentation will be added, for now please refer to the documentation of
@@ -11,13 +11,13 @@ parser.
 
 ## Introduction
 
-XPeg is a pure Elixir pattern matching library. It provides macros to compile
+Xpeg is a pure Elixir pattern matching library. It provides macros to compile
 patterns and grammars (PEGs) to Elixir function which will parse a string and
 collect selected parts of the input. PEGs are not unlike regular expressions,
 but offer more power and flexibility, and have less ambiguities. (More about 
 PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
-Some use cases where XPeg is useful are configuration or data file parsers,
+Some use cases where Xpeg is useful are configuration or data file parsers,
 robust protocol implementations, input validation, lexing of programming
 languages or domain specific languages.
 
@@ -27,14 +27,14 @@ languages or domain specific languages.
 ```elixir
 def deps do
   [
-    {:xpeg, "~> 0.6.0"}
+    {:xpeg, "~> 0.7.0"}
   ]
 end
 ```
 
 ## Quickstart
     
-Here is a simple example showing the power of XPeg: The macro `peg` compiles a
+Here is a simple example showing the power of Xpeg: The macro `peg` compiles a
 grammar definition into a `parser` functiion, which is used to match a string and
 place the key-value pairs into a list of tuples:
 
@@ -131,19 +131,36 @@ More elaborate examples can be found in [examples_test.exs](/test/examples_test.
 including a parser for arithmatic expressions and a full JSON parser.
 
 
+## Grammars
+
+The `peg` macro provides a method to define (recursive) grammars. The first
+argument is the name of initial patterns, followed by a list of named patterns.
+Patterns can now refer to other patterns by name, allowing for recursion.
+
+The order in which the grammar patterns are defined affects the generated
+parser. Although Xpeg could always reorder, this is a design choice to give the
+user more control over the generated parser:
+
+- when a pattern P1 refers to pattern P2 which is defined before P1, P2 will
+  be inlined in P1. This increases the generated code size, but generally
+  improves performance.
+  
+- when a pattern P1 refers to pattern P2 which is defined after P1, P2 will be
+  generated as a subroutine which gets called from P1. This will reduce code
+  size, but might also result in a slower parser.
 
 
 ## Syntax
 
-The XPeg syntax is similar to normal PEG notation, but some changes were made
+The Xpeg syntax is similar to normal PEG notation, but some changes were made
 to allow the grammar to be properly parsed by the Elixir compiler:
 
-- XPeg uses prefix operators instead of suffix operators for `+`, `-`
+- Xpeg uses prefix operators instead of suffix operators for `+`, `-`
 - Elixir does not support the `*` and `?` prefix operators, so instead
   `star(P)` and `opt(P)` are used
 - The explicit `*` infix operator is used for concatenation
 
-XPeg patterns and grammars can be composed of the following parts:
+Xpeg patterns and grammars can be composed of the following parts:
 
 ```
 Atoms:
@@ -182,6 +199,14 @@ Elixir function:
     fn(captures)    # Elixir function for transormations
 
 ```
+
+## Performance
+
+Generated parsers will typically never reach the spead of a hand-crafted and
+fine tuned parser for a specific grammar.  Having said that, Xpeg parsers can
+still be pretty fast; for example, the JSON parser from the examples runs at
+approximately 2/3 of the speed of the Poison JSON parser, which is said to be
+"wicked-fast"
 
 
 ## TODO
