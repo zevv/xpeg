@@ -94,6 +94,11 @@ defmodule Xpeg.Parser do
       {:&, [p]} ->
         mk_not(mk_not(parse(grammar, p)))
 
+      # prefix '@': 'search' operator, *(1 - P) * P
+      {:@, [p]} ->
+        p = parse(grammar, p)
+        mk_star(mk_minus({:any, 1}, p)) ++ p
+
       # Charset
       {:{}, ps} ->
          cs = Enum.reduce(ps, [], fn p, set ->

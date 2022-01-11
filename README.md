@@ -169,6 +169,7 @@ Operators:
      +P              # matches P one or more times
       P[n]           # matches P n times
       P[m..n]        # matches P m to n times
+     @P              # searches for P
 
 Captures:
 
