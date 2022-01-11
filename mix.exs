@@ -42,6 +42,7 @@ defmodule Xpeg.MixProject do
       {:exprof, "~> 0.2.0"},
       {:poison, "~> 5.0"},
       {:jason, "~> 1.2"},
+      {:eflame, "~> 1.0", only: [:dev]},
     ]
   end
 end

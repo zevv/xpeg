@@ -46,7 +46,7 @@ defmodule Xpeg.Parser do
   def parse({:__block__, _meta, ps}) do
     Enum.reduce(ps, %{}, fn rule, grammar ->
       {:<-, _, [name, patt]} = rule
-      Map.put(grammar, name, parse(grammar, patt))
+      Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
     end)
   end
 
@@ -130,6 +130,11 @@ defmodule Xpeg.Parser do
       {:fn, [code]} ->
         [{:code, {:fn, meta, [code]}}]
 
+      # Aliased atoms
+      {:__aliases__, [id]}
+        ->
+        parse(grammar, id)
+            
       e ->
         raise(
           "XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"

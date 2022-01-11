@@ -76,10 +76,18 @@ defmodule Xpeg do
     s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
+  
+  @doc false
+  def unalias(name) do
+    case name do
+      {:__aliases__, _, [name]} -> name
+      _ -> name
+    end
+  end
 
   @doc false
   defp make(start, rules, options) do
-    ast = %{start: start, rules: rules}
+    ast = %{start: unalias(start), rules: rules}
     |> Xpeg.Linker.link_grammar(options)
     |> Xpeg.Codegen.emit(options)
     id = String.to_atom("#{inspect start}-#{inspect(make_ref())}")
@@ -146,7 +154,7 @@ defmodule Xpeg do
 
     {t1, _} = :erlang.statistics(:runtime)
     {ctx, rest, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
-    {cap_stack, captures} = collect_captures(cap_stack, captures)
+    {_cap_stack, captures} = collect_captures(cap_stack, captures)
     {t2, _} = :erlang.statistics(:runtime)
 
     %{

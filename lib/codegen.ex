@@ -72,7 +72,7 @@ defmodule Xpeg.Codegen do
           end
         end
 
-      {:choice, ip_back, ip_commit, c} ->
+      {:choice, ip_back, ip_commit, _c} ->
         quote location: :keep do
           def parse(unquote(ip), s, si, ctx, back_stack, ret_stack, cap_stack, captures) do
             frame = { unquote(ip_back), unquote(ip_commit), ret_stack, cap_stack, s, si }
@@ -187,7 +187,9 @@ defmodule Xpeg.Codegen do
     end)
 
     ast = {
-      :__block__, [], [quote do require Xpeg end ] ++ ast
+      :__block__, [], [quote do
+        require Xpeg
+      end ] ++ ast
     }
 
     if options[:dump_code] do

@@ -39,11 +39,11 @@ grammar definition into a `parser` functiion, which is used to match a string an
 place the key-value pairs into a list of tuples:
 
 ```elixir
-p = Xpeg.peg :dict do
-  :dict <- :pair * star("," * :pair) * !1
-  :pair <- :word * "=" * :number * fn [a,b|cs] -> [{b,a}|cs] end
-  :word <- str(+{'a'..'z'})
-  :number <- int(+{'0'..'9'})
+p = Xpeg.peg Dict do
+  Dict <- Pair * star("," * Pair) * !1
+  Pair <- Word * "=" * Number * fn [a,b|cs] -> [{b,a}|cs] end
+  Word <- str(+{'a'..'z'})
+  Number <- int(+{'0'..'9'})
 end
 
 Xpeg.match(p, "grass=4,horse=1,star=2")
@@ -58,22 +58,24 @@ Output:
 ## Usage
 
 The basic operation consists of the provided _grammar_, which consists of a set
-of named _rules_. A rule is made up of a number of _atoms_ (not to be confused
-with Elixirs atom) and _operators_, which are executed to match the input
-string.  Rules can also call into other rules, allowing for recursive grammars.
+of named _rules_. A name is an elixir atom, in the form `:name` or `Name`,
+whichever you prefer.  A rule is made up of a number of _atoms_ (not to be
+confused with Elixirs atoms. I should probably find another name for this) and
+_operators_, which are executed to match the input string.  Rules can also call
+into other rules, allowing for recursive grammars.
 
 For example, the grammar below matches a comma-separated list of words
 
 ```elixir
-p = peg :list do
-  :list <- :word * star( "," * :word )
-  :word <- +{'a'..'z'}
+p = peg List do
+  List <- Word * star( "," * Word )
+  Word <- +{'a'..'z'}
 end
 ```
 
-- The `:list` rule matches one `:word`, followed by zero or more (`star(P)`)
-  times a `,` followed by a `:word`
-- The `:word` rule matches one-or-more (`+P`) times the set of characters (`{}`)
+- The `List` rule matches one `Word`, followed by zero or more (`star(P)`)
+  times a `,` followed by a `Word`
+- The `Word` rule matches one-or-more (`+P`) times the set of characters (`{}`)
   consisting of all letters from `'a'` to `'z'`
 
 
@@ -84,12 +86,12 @@ function, but can also be used by in-grammar functions to perform conversions
 or transformations.
 
 Below is the same grammar as above, but in this case it captures all
-the individual `:word:`s:
+the individual `Word`s:
 
 ```elixir
-p = peg :list do
-  :list <- :word * star( "," * :word )
-  :word <- str(+{'a'..'z'})
+p = peg List do
+  List <- Word * star( "," * Word )
+  Word <- str(+{'a'..'z'})
 end
 
 match(p, "one,two,three")
@@ -109,9 +111,9 @@ and a conversion function is called after every matching number that
 converts the last captured value on the `captures` list to an integer:
 
 ```elixir
-p = peg :list do
-  :list <- :word * star( "," * :word )
-  :word <- cap(+{'0'..'9'}) * 
+p = peg List do
+  List <- Word * star( "," * Word )
+  Word <- cap(+{'0'..'9'}) * 
     fn [v|cs] -> 
       [String.to_integer(v)|cs]
     end

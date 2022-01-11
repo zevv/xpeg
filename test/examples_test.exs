@@ -7,11 +7,11 @@ defmodule ExamplesTest do
     # Split a comma seperated list of key/value pairs
 
     p =
-      peg :dict do
-        :dict <- :pair * star("," * :pair) * !1
-        :pair <- :word * "=" * :number * fn [a, b | cs] -> [{b, a} | cs] end
-        :word <- str(+{'a'..'z'})
-        :number <- int(+{'0'..'9'})
+      peg Dict do
+        Dict <- Pair * star("," * Pair) * !1
+        Pair <- Word * "=" * Number * fn [a, b | cs] -> [{b, a} | cs] end
+        Word <- str(+{'a'..'z'})
+        Number <- int(+{'0'..'9'})
       end
 
     r = match(p, "grass=4,horse=1,star=2")
@@ -22,13 +22,13 @@ defmodule ExamplesTest do
     # This gramars parse simple arithmatic expressions into AST
 
     p =
-      peg :exp do
-        :exp <- :term * star(:exp_op)
-        :term <- :factor * star(:term_op)
-        :factor <- :number | "(" * :exp * ")"
-        :number <- int(+{'0'..'9'})
-        :term_op <- str({'*', '/'}) * :factor * fn [b, op, a | cs] -> [{op, a, b} | cs] end
-        :exp_op <- str({'+', '-'}) * :term * fn [b, op, a | cs] -> [{op, a, b} | cs] end
+      peg Exp do
+        Exp <- Term * star(Exp_op)
+        Term <- Factor * star(Term_op)
+        Factor <- Number | "(" * Exp * ")"
+        Number <- int(+{'0'..'9'})
+        Term_op <- str({'*', '/'}) * Factor * fn [b, op, a | cs] -> [{op, a, b} | cs] end
+        Exp_op <- str({'+', '-'}) * Term * fn [b, op, a | cs] -> [{op, a, b} | cs] end
       end
 
     cs = match(p, "1+(2-3*4)/5").captures
@@ -39,45 +39,45 @@ defmodule ExamplesTest do
     # Parse a JSON document into Elixir lists and maps
 
     p =
-      peg :json do
+      peg Json do
         # White space
-        :s <- star({' ', '\t', '\r', '\n'})
+        S <- star({' ', '\t', '\r', '\n'})
 
         # Basic atoms
         true <- "true" * fn cs -> [true | cs] end
         false <- "false" * fn cs -> [false | cs] end
-        :null <- "null" * fn cs -> [nil | cs] end
+        Null <- "null" * fn cs -> [nil | cs] end
 
         # Strings
-        :xdigit <- {'0'..'9', 'a'..'f', 'A'..'F'}
-        :unicode_escape <- 'u' * :xdigit[4]
-        :escape <- '\\' * ({'"', '\\', '/', 'b', 'f', 'n', 'r', 't'} | :unicode_escape)
-        :string_body <- star(:escape) * star(+({'\x20'..'\x7f'} - {'"'} - {'\\'}) * star(:escape))
-        :string <- '"' * str(:string_body) * '"'
+        Xdigit <- {'0'..'9', 'a'..'f', 'A'..'F'}
+        Unicode_escape <- 'u' * Xdigit[4]
+        Escape <- '\\' * ({'"', '\\', '/', 'b', 'f', 'n', 'r', 't'} | Unicode_escape)
+        String_body <- star(Escape) * star(+({'\x20'..'\x7f'} - {'"'} - {'\\'}) * star(Escape))
+        String <- '"' * str(String_body) * '"'
 
         # Numbers are converted to Elixir float
-        :minus <- '-'
-        :int_part <- '0' | {'1'..'9'} * star({'0'..'9'})
-        :fract_part <- "." * +{'0'..'9'}
-        :exp_part <- {'e', 'E'} * opt({'+', '-'}) * +{'0'..'9'}
-        :number <- float(opt(:minus) * :int_part * opt(:fract_part) * opt(:exp_part)) 
+        Minus <- '-'
+        Int_part <- '0' | {'1'..'9'} * star({'0'..'9'})
+        Fract_part <- "." * +{'0'..'9'}
+        Exp_part <- {'e', 'E'} * opt({'+', '-'}) * +{'0'..'9'}
+        Number <- float(opt(Minus) * Int_part * opt(Fract_part) * opt(Exp_part)) 
 
         # Objects are represented by an Elixir map
-        :obj_pair <- :s * :string * :s * ":" * :value * fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
+        Obj_pair <- S * String * S * ":" * Value * fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
 
-        :object <- '{' * fn cs -> [%{} | cs] end * (:obj_pair * star("," * :obj_pair) | :s) * "}"
+        Object <- '{' * fn cs -> [%{} | cs] end * (Obj_pair * star("," * Obj_pair) | S) * "}"
 
         # Arrays are represented by an Elixir list
-        :array_elem <- :value * fn [v, a | cs] -> [[v | a] | cs] end
+        Array_elem <- Value * fn [v, a | cs] -> [[v | a] | cs] end
 
-        :array <- "[" * fn cs -> [[] | cs] end * (:array_elem * star("," * :array_elem) | :s) * "]" *
+        Array <- "[" * fn cs -> [[] | cs] end * (Array_elem * star("," * Array_elem) | S) * "]" *
             fn [a | cs] -> [Enum.reverse(a) | cs] end
 
         # All possible JSON values
-        :value <- :s * (:number | :string | :object | :array | true | false | :null) * :s
+        Value <- S * (Number | String | Object | Array | true | false | Null) * S
 
         # The toplevel json document is a value with no other trailing characters
-        :json <- :value * !1
+        Json <- Value * !1
       end
 
     s = ~s({"one": "cow", "two": 42, "three": true, "four": [ 5, 6, false ], "five": null})
