@@ -42,17 +42,14 @@ defmodule Xpeg.Parser do
     end
   end
 
-  # Parse a grammar consisting of a list of named rules
-  def parse({:__block__, _meta, ps}) do
-    Enum.reduce(ps, %{}, fn rule, grammar ->
-      {:<-, _, [name, patt]} = rule
-      Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
-    end)
-  end
-
-  # Parse a grammar consisting of one single rule
-  def parse({:<-, _, [name, patt]}) do
-    %{name => parse(%{}, patt)}
+  # Small rules that are already in the grammar get inlined instead of
+  # called
+  def call_or_inline(grammar, v) do
+    if grammar[v] != nil and Enum.count(grammar[v]) < @inline_max_len do
+      grammar[v]
+    else
+      [{:call, v}]
+    end
   end
 
   # Parse a pattern
@@ -60,6 +57,17 @@ defmodule Xpeg.Parser do
     # IO.inspect {"parse", id, args}
 
     case {id, args} do
+
+      # Parse a grammar consisting of a list of named rules
+      {:__block__,  ps} ->
+        Enum.reduce(ps, grammar, fn rule, grammar ->
+          {:<-, _, [name, patt]} = rule
+          Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
+        end)
+  
+      # Parse a grammar consisting of one single rule
+      {:<-, [name, patt]} ->
+        %{name => parse(grammar, patt) ++ [{:return}] }
 
       # infix: '*' Concatenation
       {:*, [p1, p2]} ->
@@ -150,14 +158,7 @@ defmodule Xpeg.Parser do
   # Transform AST literals into PEG IR
   def parse(grammar, p) do
     case p do
-      v when is_atom(v) ->
-        # Small rules that are already in the grammar get inlined instead of
-        # called
-        if grammar[v] != nil and Enum.count(grammar[v]) < @inline_max_len do
-          grammar[v]
-        else
-          [{:call, v}]
-        end
+      v when is_atom(v) -> call_or_inline(grammar, v)
       0 -> [{:nop}]
       v when is_number(v) -> [{:any, v}]
       v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
