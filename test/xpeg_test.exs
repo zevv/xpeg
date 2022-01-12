@@ -138,6 +138,18 @@ defmodule XpegTest do
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ac")
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ae")
   end
+  
+  test "grammars" do
+    p = peg One do
+      One <- "1"
+    end
+    assert(match(p, "1").result == :ok)
+    p = peg One do
+      One <- Two
+      Two <- "2"
+    end
+    assert(match(p, "2").result == :ok)
+  end
 
   test "peephole bug" do
     p = peg :flop do
@@ -147,5 +159,6 @@ defmodule XpegTest do
     assert(match(p, "3").result == :ok)
     assert(match(p, "2").result == :ok)
   end
+
 
 end
