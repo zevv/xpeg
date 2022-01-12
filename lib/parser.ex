@@ -42,6 +42,17 @@ defmodule Xpeg.Parser do
     end
   end
 
+  # Charset
+  defp mk_set(ps) do
+     cs = Enum.reduce(ps, [], fn p, set ->
+       case p do
+         [v] -> [v | set]
+         {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
+       end
+     end)
+    [{:set, cs}]
+  end
+
   # Small rules that are already in the grammar get inlined instead of
   # called
   def call_or_inline(grammar, v) do
@@ -53,113 +64,117 @@ defmodule Xpeg.Parser do
   end
 
   # Parse a pattern
-  def parse(grammar, {id, meta, args}) do
+  def parse(grammar, node) do
     # IO.inspect {"parse", id, args}
 
-    case {id, args} do
+    case node do
 
       # Parse a grammar consisting of a list of named rules
-      {:__block__,  ps} ->
+      {:__block__,  _, ps} ->
         Enum.reduce(ps, grammar, fn rule, grammar ->
           {:<-, _, [name, patt]} = rule
           Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
         end)
   
       # Parse a grammar consisting of one single rule
-      {:<-, [name, patt]} ->
+      {:<-, _, [name, patt]} ->
         %{name => parse(grammar, patt) ++ [{:return}] }
 
       # infix: '*' Concatenation
-      {:*, [p1, p2]} ->
+      {:*, _, [p1, p2]} ->
         parse(grammar, p1) ++ parse(grammar, p2)
 
       # infix '|': Ordered choice
-      {:|, [p1, p2]} ->
+      {:|, _, [p1, p2]} ->
         mk_choice(parse(grammar, p1), parse(grammar, p2))
 
       # prefix '*': zero-or-more operator
-      {:star, [p]} ->
+      {:star, _, [p]} ->
         mk_star(parse(grammar, p))
 
       # prefix '?': one-or-zero operator
-      {:opt, [p]} ->
+      {:opt, _, [p]} ->
         mk_opt(parse(grammar, p))
 
       # prefix '+': one-or-more operator
-      {:+, [p]} ->
+      {:+, _, [p]} ->
         p = parse(grammar, p)
         p ++ mk_star(p)
 
       # Infix '-': difference
-      {:-, [p1, p2]} ->
+      {:-, _, [p1, p2]} ->
         mk_minus(parse(grammar, p1), parse(grammar, p2))
 
       # prefix '!': 'not' operator
-      {:!, [p]} ->
+      {:!, _, [p]} ->
         mk_not(parse(grammar, p))
 
       # prefix '&': 'and-predicate' operator
-      {:&, [p]} ->
+      {:&, _, [p]} ->
         mk_not(mk_not(parse(grammar, p)))
 
       # prefix '@': 'search' operator, *(1 - P) * P
-      {:@, [p]} ->
+      {:@, _, [p]} ->
         p = parse(grammar, p)
         mk_star(mk_minus({:any, 1}, p)) ++ p
 
       # Charset
-      {:{}, ps} ->
-         cs = Enum.reduce(ps, [], fn p, set ->
-           case p do
-             [v] -> [v | set]
-             {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
-           end
-         end)
-        [{:set, cs}]
+      {:{}, _, ps} ->
+        mk_set(ps)
 
       # Repetition count [low..hi]
-      {{:., _, [Access, :get]}, [p, {:.., _, [n1, n2]}]} ->
+      {{:., _, [Access, :get]}, _, [p, {:.., _, [n1, n2]}]} ->
         p = parse(grammar, p)
         (List.duplicate(p, n1) ++ List.duplicate(mk_opt(p), n2 - n1)) |> List.flatten()
 
       # Repetition count [n]
-      {{:., _, [Access, :get]}, [p, n]} ->
+      {{:., _, [Access, :get]}, _, [p, n]} ->
         List.duplicate(parse(grammar, p), n) |> List.flatten()
 
       # Capture
-      {captype, [p]} when captype in [:str, :int, :float]->
+      {captype, _, [p]} when captype in [:str, :int, :float]->
         [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, captype}]
 
       # Code block
-      {:fn, [code]} ->
+      {:fn, meta, [code]} ->
         [{:code, {:fn, meta, [code]}}]
 
-      # Aliased atoms
-      {:__aliases__, [id]}
-        ->
+      # Aliased atoms, for Capital names instaed of :colon names
+      {:__aliases__, _, [id]} ->
         parse(grammar, id)
+  
+      # Delegate two-tuple :{} set to the above parse function
+      {p1, p2} ->
+        parse(grammar, {:{}, 0, [p1, p2]})
+
+      # Label: call or inline a named rule
+      v when is_atom(v) ->
+        call_or_inline(grammar, v)
+
+      # Number 0, :any operator with 0 count, matches always
+      0 ->
+        [{:nop}]
+
+      # Number, :any operator with non-zero count
+      v when is_number(v) ->
+        [{:any, v}]
+
+      # String literal
+      v when is_binary(v) ->
+        to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
+
+      # Charlist
+      v when is_list(v) ->
+        for c <- v do {:chr, c} end
             
+      {_, meta, e} ->
+        raise("XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")
+
       e ->
-        raise(
-          "XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
-        )
+        raise("XPeg: unhandled literal #{inspect e}")
+
     end
   end
 
-  # Delegate two-tuple :{} to the above parse function
-  def parse(grammar, {p1, p2}) do
-    parse(grammar, {:{}, 0, [p1, p2]})
-  end
 
-  # Transform AST literals into PEG IR
-  def parse(grammar, p) do
-    case p do
-      v when is_atom(v) -> call_or_inline(grammar, v)
-      0 -> [{:nop}]
-      v when is_number(v) -> [{:any, v}]
-      v when is_binary(v) -> to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
-      [v] -> [{:chr, v}]
-      v -> raise("Unhandled lit: #{inspect(v)}")
-    end
-  end
 end

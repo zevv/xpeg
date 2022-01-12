@@ -20,6 +20,7 @@ defmodule XpegTest do
     run(patt("a"), "a")
     run(patt("a"), "b", :error)
     run(patt("abc"), "abc")
+    run(patt('abc'), "abc")
     run(patt("abc"), "-bcd", :error)
     run(patt("abc"), "a-cd", :error)
     run(patt("abc"), "ab-d", :error)
