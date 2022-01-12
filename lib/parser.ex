@@ -65,7 +65,7 @@ defmodule Xpeg.Parser do
 
   # Parse a pattern
   def parse(grammar, node) do
-    # IO.inspect {"parse", id, args}
+    #IO.inspect (node)
 
     case node do
 
@@ -78,7 +78,7 @@ defmodule Xpeg.Parser do
   
       # Parse a grammar consisting of one single rule
       {:<-, _, [name, patt]} ->
-        %{name => parse(grammar, patt) ++ [{:return}] }
+        %{Xpeg.unalias(name) => parse(grammar, patt) ++ [{:return}] }
 
       # infix: '*' Concatenation
       {:*, _, [p1, p2]} ->
