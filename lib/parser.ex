@@ -161,7 +161,7 @@ defmodule Xpeg.Parser do
 
       # String literal
       v when is_binary(v) ->
-        to_charlist(v) |> Enum.map(fn c -> {:chr, c} end)
+        parse(grammar, to_charlist(v))
 
       # Charlist
       v when is_list(v) ->
