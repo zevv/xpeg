@@ -71,14 +71,11 @@ defmodule Xpeg.Parser do
 
       # Parse a grammar consisting of a list of named rules
       {:__block__,  _, ps} ->
-        Enum.reduce(ps, grammar, fn rule, grammar ->
-          {:<-, _, [name, patt]} = rule
-          Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
-        end)
+        Enum.reduce(ps, grammar, fn rule, grammar -> parse(grammar, rule) end)
   
-      # Parse a grammar consisting of one single rule
+      # Parse one named rule
       {:<-, _, [name, patt]} ->
-        %{Xpeg.unalias(name) => parse(grammar, patt) ++ [{:return}] }
+        Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
 
       # infix: '*' Concatenation
       {:*, _, [p1, p2]} ->
