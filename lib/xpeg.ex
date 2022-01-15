@@ -98,7 +98,7 @@ defmodule Xpeg do
   Define a PEG grammar which uses `start` as the initial rule
   """
   defmacro peg(start, _rules = [{:do, v}]) do
-    {id, ast} = make(start, Xpeg.Parser.parse(%{}, v), [])
+    {id, ast} = make(start, Xpeg.Parser.parse(v), [])
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -120,7 +120,7 @@ defmodule Xpeg do
 
   """
   defmacro peg(start, options, [{:do, v}]) do
-    {id, ast} = make(start, Xpeg.Parser.parse(%{}, v), options)
+    {id, ast} = make(start, Xpeg.Parser.parse(v), options)
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -131,7 +131,7 @@ defmodule Xpeg do
   """
 
   defmacro patt(v) do
-    {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(%{}, v)}, [])
+    {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end

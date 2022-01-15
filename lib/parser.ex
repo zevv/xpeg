@@ -63,6 +63,11 @@ defmodule Xpeg.Parser do
     end
   end
 
+  def parse(node) do
+    Xpeg.Railroad.draw(node)
+    parse(%{}, node)
+  end
+
   # Parse a pattern
   def parse(grammar, node) do
     #IO.inspect (node)
