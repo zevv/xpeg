@@ -124,6 +124,12 @@ defmodule Xpeg.Railroad do
       {:+, _, [p]} ->
         mk_plus(parse(p))
 
+      # Infix '-': difference
+      {:-, _, [p1, p2]} ->
+        mk_concat(
+          new() |> poke("!") |> add(parse(p2), 1, 0),
+          parse(p1))
+
       # prefix '*': zero-or-more operator
       {:star, _, [p]} ->
         mk_opt(mk_plus(parse(p)))

@@ -17,12 +17,11 @@ collect selected parts of the input. PEGs are not unlike regular expressions,
 but offer more power and flexibility, and have less ambiguities. (More about 
 PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
-```
-                                  ╭────────────────»────────────────╮
-               ╭───────»──────╮   │              ╭───────»──────╮   │
-String_body o──┴─┬─[Escape]─┬─┴─»─┴─┬─┬─{:-}─┬─»─┴─┬─[Escape]─┬─┴─┬─┴──o
-                 ╰─────«────╯       │ ╰───«──╯     ╰─────«────╯   │
-                                    ╰──────────────«──────────────╯
+```elixir
+                                      ╭───────────»──────────╮
+Object o──'{'─»─fn()─»─┬─[Obj_pair]─»─┴─┬─","─»─[Obj_pair]─┬─┴─┬─»─"}"──o
+                       │                ╰─────────«────────╯   │
+                       ╰─[S]───────────────────────────────────╯
 ```
 
 Some use cases where Xpeg is useful are configuration or data file parsers,
@@ -243,12 +242,11 @@ diagrams (also known as railroad diagrams) for all parsed rules.
 Syntax diagrams are sometimes helpful to understand or debug a grammar, or to
 get more insight in a grammars' complexity.
 
-```
-                                  ╭────────────────»────────────────╮
-               ╭───────»──────╮   │              ╭───────»──────╮   │
-String_body o──┴─┬─[Escape]─┬─┴─»─┴─┬─┬─{:-}─┬─»─┴─┬─[Escape]─┬─┴─┬─┴──o
-                 ╰─────«────╯       │ ╰───«──╯     ╰─────«────╯   │
-                                    ╰──────────────«──────────────╯
+```elixir
+                                      ╭───────────»──────────╮
+Object o──'{'─»─fn()─»─┬─[Obj_pair]─»─┴─┬─","─»─[Obj_pair]─┬─┴─┬─»─"}"──o
+                       │                ╰─────────«────────╯   │
+                       ╰─[S]───────────────────────────────────╯
 ```
 
 - Optionals (?) are indicated by a forward arrow overhead.
