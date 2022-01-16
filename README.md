@@ -265,7 +265,7 @@ string during parsing - this will dramatically slow down the parsing, however.
 
 For example, the following program:
 
-```
+```elixir
 Xpeg.peg Line, trace: true, dump_ir: true do
  Space <- ' '
  Line <- Word * star(Space * Word)
@@ -278,7 +278,7 @@ IR it can be seen that the space rule has been inlined in the line rule, but
 that the `Word` rule has been emitted as a subroutine which gets called from
 `Line`:
 
-```
+```elixir
 Line:
   0 :call 6
   1 :choice 5 1
@@ -299,7 +299,7 @@ At runtime, the following trace is generated. The trace consists of a number of 
 - The substring of the subject.
 - The instruction being executed.
 
-```
+```elixir
     0 | 'one two'              | {:call, 6} 
     6 | 'one two'              | {:set, 'abcdefghijklmnopqrstuvwxyz'} 
     7 | 'ne two'               | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
