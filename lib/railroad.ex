@@ -42,9 +42,9 @@ defmodule Xpeg.Railroad do
     end
   end
 
-  defp add_opt(n, nc) do
+  defp mk_opt(nc) do
     ntop = new() |> pad(nc.w+2, 0)
-    n
+    new()
     |> add(pad(nc, 2, 2))
     |> add(ntop, 1, nc.y0-1)
     |> vlines(nc.y0, -1, 0, nc.w+3)
@@ -53,9 +53,9 @@ defmodule Xpeg.Railroad do
     |> poke("»", div(nc.w, 2)+2, nc.y0-1)
   end
 
-  defp add_plus(n, nc) do
+  defp mk_plus(nc) do
     nbot = new() |> pad(nc.w+2, 0)
-    n
+    new()
     |> poke("┬", 0, 0) |> poke("┬", nc.w + 3, 0)
     |> add(pad(nc, 2, 2))
     |> add(nbot, 1, nc.y1+1)
@@ -64,18 +64,38 @@ defmodule Xpeg.Railroad do
     |> poke("«", div(nc.w, 2)+2, nc.y1+1)
   end
 
-  defp add_repeat(n, nc, lo, hi) do
-    n
+  defp mk_concat(n1, n2) do
+    n1 = pad(n1, 0, 1)
+    n2 = pad(n2, 1, 0)
+    n1 |> add(n2, n1.w+1) |> poke("»", n1.w, 0)
+  end
+
+  defp mk_repeat(nc, i, lo, hi) do
+    cond do
+      i < lo -> mk_concat(nc, mk_repeat(nc, i+1, lo, hi))
+      i < hi -> mk_concat(nc, mk_opt(mk_repeat(nc, i+1, lo, hi)))
+      true -> nc
+    end
+  end
+
+  defp mk_choice(n1, n2) do
+    wmax = max(n1.w, n2.w)
+    n1 = pad(n1, 1, wmax-n1.w+1)
+    n2 = pad(n2, 1, wmax-n2.w+1)
+    new() 
+    |> add(n1, 1, 0) |> add(n2, 1, n1.y1+1-n2.y0)
+    |> poke("┬", 0, 0) |> poke("┬", n1.w+1, 0)
+    |> poke("╰", 0, n1.y1-n2.y0+1) |> poke("╯", n1.w+1, n1.y1-n2.y0+1)
+    |> vlines(1, n1.y1-n2.y0+1, 0, n1.w+1)
   end
 
   def parse(v) do
-
-    n = new()
 
     case v do
       
       # Parse a grammar consisting of a list of named rules
       {:__block__,  _, ps} ->
+        n = new()
         {n, _} = Enum.reduce(ps, {n, 0}, fn pc, {n, y} ->
           nc = parse(pc)
           n = n |> add(nc, 0, y - nc.y0)
@@ -87,73 +107,70 @@ defmodule Xpeg.Railroad do
       # Parse one named rule
       {:<-, _, [name, patt]} ->
         name = to_string(Xpeg.unalias(name))
-        nc_name = new() |> poke(name <> " o─")
+        nc_name = new() |> poke(name <> " o──")
         nc_patt = parse(patt)
-        nc_end = new() |> poke("─o")
-        n |> add(nc_name) |> add(nc_patt, nc_name.w) |> add(nc_end, nc_name.w + nc_patt.w)
+        nc_end = new() |> poke("──o")
+        nc_name |> add(nc_patt, nc_name.w) |> add(nc_end, nc_name.w + nc_patt.w)
       
       # infix: '*' Concatenation
       {:*, _, [p1, p2]} ->
-        {n1, n2} = { pad(parse(p1), 0, 1), pad(parse(p2), 1, 0)}
-        n |> add(n1) |> add(n2, n1.w+1) |> poke("»", n1.w, 0)
+        parse(p1) |> mk_concat(parse(p2))
       
       # infix '|': Ordered choice
       {:|, _, [p1, p2]} ->
-        ncs = [ parse(p1), parse(p2) ]
-        wmax = Enum.map(ncs, &(&1.w)) |> Enum.max
-        ncs = Enum.map(ncs, fn nc -> pad(nc, 1, wmax-nc.w+1) end)
-        [n1, n2] = ncs
-        n 
-        |> add(n1, 1, 0) |> add(n2, 1, n1.y1+1-n2.y0)
-        |> poke("┬", 0, 0) |> poke("┬", n1.w+1, 0)
-        |> poke("╰", 0, n1.y1-n2.y0+1) |> poke("╯", n1.w+1, n1.y1-n2.y0+1)
-        |> vlines(1, n1.y1-n2.y0+1, 0, n1.w+1)
+        mk_choice(parse(p1), parse(p2))
       
       # prefix '+': one-or-more operator
       {:+, _, [p]} ->
-        n |> add_plus(parse(p))
+        mk_plus(parse(p))
 
       # prefix '*': zero-or-more operator
       {:star, _, [p]} ->
-        nc = parse(p)
-        n2 = add_plus(n, nc)
-        n = add_opt(n, n2)
+        mk_opt(mk_plus(parse(p)))
 
       # prefix 'opt': zero-or-one operator
       {:opt, _, [p]} ->
-        n |> add_opt(parse(p))
-        
+        mk_opt(parse(p))
+
+      # prefix '!', '@', '&': operator
+      {op, _, p} when op in [ :!, :@, :& ] ->
+        new() |> poke(to_string(op)) |> add(parse(p), 1, 0)
+
+      # Charset
+      {:{}, _, val} ->
+        new() |> poke("{#{set_to_string(val)}}")
+
+      # Repetition count [low..hi]
       {{:., _, [Access, :get]}, _, [p, {:.., _, [lo, hi]}]} ->
-        add_repeat(n, parse(p), lo, hi)
+        mk_repeat(parse(p), 1, lo, hi)
 
       # Repetition count [n]
       {{:., _, [Access, :get]}, _, [p, lo]} ->
-        add_repeat(n, parse(p), lo, lo)
-        
-      {:!, _, p} ->
-        new() |> poke("!") |> add(parse(p), 1, 0)
-      
+        mk_repeat(parse(p), 1, lo, lo)
+
+      # Capture
+      {cap, _, [p]} when cap in [:str, :int, :float] ->
+        parse(p)
+
+      # Code block
+      {:fn, _, code} ->
+        new() |> poke("fn()")
+
       # Aliased atoms, for Capital names instaed of :colon names
       {:__aliases__, _, [id]} ->
         new() |> poke("[#{id}]")
 
-      {:fn, _, code} ->
-        new() |> poke("fn()")
-        
-      {:str, _, [p]} ->
-        parse(p)
-        
-      {:float, _, [p]} ->
-        parse(p)
-        
-      {:int, _, [p]} ->
-        parse(p)
+      # Delegate two-tuple :{} set to the above parse function
+      {p1, p2} ->
+        parse({:{}, 0, [p1, p2]})
 
+      # String literal
       v when is_binary(v) ->
         new |> poke(inspect(v))
-        
-      {:{}, _, val} ->
-        new() |> poke("{#{set_to_string(val)}}")
+      
+      # Number, :any operator with non-zero count
+      v when is_number(v) ->
+        new |> poke(to_string(v))
 
       {what, _, val} ->
         new()
@@ -162,7 +179,7 @@ defmodule Xpeg.Railroad do
       e ->
         new()
         |> poke(inspect(e))
-  
+
     end
 
   end

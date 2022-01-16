@@ -5,7 +5,7 @@
 
 
 More documentation will be added, for now please refer to the documentation of
-[NPeg](https://github.com/zevv/npeg), a Nim implementation of a similar PEG
+[Xpeg](https://github.com/zevv/npeg), a Nim implementation of a similar PEG
 parser.
 
 
@@ -17,9 +17,30 @@ collect selected parts of the input. PEGs are not unlike regular expressions,
 but offer more power and flexibility, and have less ambiguities. (More about 
 PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
+```
+                                  ╭────────────────»────────────────╮
+               ╭───────»──────╮   │              ╭───────»──────╮   │
+String_body o──┴─┬─[Escape]─┬─┴─»─┴─┬─┬─{:-}─┬─»─┴─┬─[Escape]─┬─┴─┬─┴──o
+                 ╰─────«────╯       │ ╰───«──╯     ╰─────«────╯   │
+                                    ╰──────────────«──────────────╯
+```
+
 Some use cases where Xpeg is useful are configuration or data file parsers,
 robust protocol implementations, input validation, lexing of programming
 languages or domain specific languages.
+
+Some Xpeg highlights:
+
+- Grammar definitions and Elixir code can be freely mixed. Nim code is embedded
+  using the normal Nim code block syntax, and does not disrupt the grammar
+  definition.
+
+- Xpeg-generated parsers can be used both at run and at compile time.
+
+- Xpeg offers various methods for tracing, optimizing and debugging your
+  parsers.
+
+- Xpeg can draw cool diagrams.
 
 
 ## Installation
@@ -33,7 +54,7 @@ end
 ```
 
 ## Quickstart
-    
+
 Here is a simple example showing the power of Xpeg: The macro `peg` compiles a
 grammar definition into a `parser` functiion, which is used to match a string and
 place the key-value pairs into a list of tuples:
@@ -146,7 +167,7 @@ user more control over the generated parser:
 - when a pattern P1 refers to pattern P2 which is defined before P1, P2 will
   be inlined in P1. This increases the generated code size, but generally
   improves performance.
-  
+
 - when a pattern P1 refers to pattern P2 which is defined after P1, P2 will be
   generated as a subroutine which gets called from P1. This will reduce code
   size, but might also result in a slower parser.
@@ -209,6 +230,98 @@ fine tuned parser for a specific grammar.  Having said that, Xpeg parsers can
 still be pretty fast; for example, the JSON parser from the examples runs at
 approximately 2/3 of the speed of the Poison JSON parser, which is said to be
 "wicked-fast"
+
+
+## Tracing and debugging
+
+
+### Syntax diagrams
+
+When passing the option `:dump_graph` to `Xpeg.peg()`, Xpeg will dump syntax
+diagrams (also known as railroad diagrams) for all parsed rules.
+
+Syntax diagrams are sometimes helpful to understand or debug a grammar, or to
+get more insight in a grammars' complexity.
+
+```
+                                  ╭────────────────»────────────────╮
+               ╭───────»──────╮   │              ╭───────»──────╮   │
+String_body o──┴─┬─[Escape]─┬─┴─»─┴─┬─┬─{:-}─┬─»─┴─┬─[Escape]─┬─┴─┬─┴──o
+                 ╰─────«────╯       │ ╰───«──╯     ╰─────«────╯   │
+                                    ╰──────────────«──────────────╯
+```
+
+- Optionals (?) are indicated by a forward arrow overhead.
+- Repeats ('+') are indicated by a backwards arrow underneath.
+- Non-terminals are printed in square brackets.
+
+
+### Tracing
+
+
+When passing the flag `:dump_ir` to Xpeg.peg, it will print the IR representation of the
+parsed grammar at compile time. The option `:trace` will print the IR instructions and the matched subject
+string during parsing - this will dramatically slow down the parsing, however.
+
+For example, the following program:
+
+```
+Xpeg.peg Line, trace: true, dump_ir: true do
+ Space <- ' '
+ Line <- Word * star(Space * Word)
+ Word <- +{'a'..'z'}
+end
+```
+
+will output the following intermediate representation at compile time. From the
+IR it can be seen that the space rule has been inlined in the line rule, but
+that the `Word` rule has been emitted as a subroutine which gets called from
+`Line`:
+
+```
+Line:
+  0 :call 6
+  1 :choice 5 1
+  2 :chr 32
+  3 :call 6
+  4 :commit
+  5 :return
+Word:
+  6 :set 'abcdefghijklmnopqrstuvwxyz'
+  7 :span 'abcdefghijklmnopqrstuvwxyz'
+  8 :return
+  fail :fail
+```
+
+At runtime, the following trace is generated. The trace consists of a number of columns:
+
+- The current instruction pointer, which maps to the compile time dump.
+- The substring of the subject.
+- The instruction being executed.
+
+```
+    0 | 'one two'              | {:call, 6} 
+    6 | 'one two'              | {:set, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | 'ne two'               | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | 'e two'                | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | ' two'                 | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    8 | ' two'                 | {:return} 
+    1 | ' two'                 | {:choice, 5, 1} 
+    2 | ' two'                 | {:chr, 32} 
+    3 | 'two'                  | {:call, 6} 
+    6 | 'two'                  | {:set, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | 'wo'                   | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | 'o'                    | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    7 | []                     | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
+    8 | []                     | {:return} 
+    4 | []                     | {:commit} 
+    1 | []                     | {:choice, 5, 1} 
+    2 | []                     | {:chr, 32} 
+ fail | []                     | {:fail} 
+    5 | []                     | {:return}
+```
+
+The exact meaning of the IR instructions is not discussed here
 
 
 ## TODO

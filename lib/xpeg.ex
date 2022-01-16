@@ -113,6 +113,8 @@ defmodule Xpeg do
     generated parser is dumped at compile time
   - `:dump_code` - if `true`, the generated Elixir code for the parser
     is dumped at compile time
+  - `:dump_graph` - if `true`, generate a graphical 'railroad' diagram
+    of the grammar at compile time
   - `:userdata` - if `true`, elixir functions that are embedded in the grammar
     take an additional accumulator argument and should return a tuple 
     `{captures | acc}` - the resulting accumulator value is available as 
@@ -120,6 +122,7 @@ defmodule Xpeg do
 
   """
   defmacro peg(start, options, [{:do, v}]) do
+    if options[:dump_graph] do Xpeg.Railroad.draw(v) end
     {id, ast} = make(start, Xpeg.Parser.parse(v), options)
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
@@ -129,7 +132,6 @@ defmodule Xpeg do
   @doc """
   Define a grammar with one anonymous rule.
   """
-
   defmacro patt(v) do
     {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
     quote do

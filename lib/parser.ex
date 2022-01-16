@@ -64,7 +64,6 @@ defmodule Xpeg.Parser do
   end
 
   def parse(node) do
-    Xpeg.Railroad.draw(node)
     parse(%{}, node)
   end
 
