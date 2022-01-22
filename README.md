@@ -30,9 +30,8 @@ languages or domain specific languages.
 
 Some Xpeg highlights:
 
-- Grammar definitions and Elixir code can be freely mixed. Nim code is embedded
-  using the normal Nim code block syntax, and does not disrupt the grammar
-  definition.
+- Grammar definitions and Elixir code acting on or transforming the parsed
+  fragments can be freely mixed. 
 
 - Xpeg-generated parsers can be used both at run and at compile time.
 
