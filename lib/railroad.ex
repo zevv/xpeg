@@ -6,7 +6,7 @@ defmodule Xpeg.Railroad do
   end
 
   def poke(n, s, x \\ 0, y \\ 0) when is_binary(s) do
-    syms = s 
+    syms = s
            |> String.graphemes()
            |> Enum.with_index()
            |> Enum.reduce(n.syms, fn {c, i}, syms -> [ %{x: x+i, y: y, c: c} | syms] end)
@@ -78,21 +78,44 @@ defmodule Xpeg.Railroad do
     end
   end
 
-  defp mk_choice(n1, n2) do
-    wmax = max(n1.w, n2.w)
-    n1 = pad(n1, 1, wmax-n1.w+1)
-    n2 = pad(n2, 1, wmax-n2.w+1)
-    new() 
-    |> add(n1, 1, 0) |> add(n2, 1, n1.y1+1-n2.y0)
-    |> poke("┬", 0, 0) |> poke("┬", n1.w+1, 0)
-    |> poke("╰", 0, n1.y1-n2.y0+1) |> poke("╯", n1.w+1, n1.y1-n2.y0+1)
-    |> vlines(1, n1.y1-n2.y0+1, 0, n1.w+1)
+  defp add_to_choice(ps, p) do
+    case p do
+      {:|, _, [p1, p2]} -> ps |> add_to_choice(p1) |> add_to_choice(p2)
+      _ -> [p | ps]
+    end
+  end
+
+  defp mk_choice(p1, p2) do
+    ns = [] |> add_to_choice(p1) |> add_to_choice(p2) |> Enum.reverse() |> Enum.map(&parse/1)
+    last = Enum.count(ns)-1
+    wmax = (Enum.map(ns, &(&1.w)) |> Enum.max()) + 2
+    {n, y} = Enum.reduce(Enum.with_index(ns), {new(), 0}, fn {nc, i}, {n, y} ->
+      case i do
+        0 ->
+          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y)
+                |> vlines(y+1, y+nc.y1, 0, wmax+2)
+                |> poke("┬", 0, y) |> poke("┬", wmax+2, y)
+          {n, y + nc.y1 + 1}
+        ^last ->
+          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y - nc.y0)
+                |> vlines(y, y-nc.y0-1, 0, wmax+2)
+                |> poke("╰", 0, y-nc.y0) |> poke("╯", wmax+2, y-nc.y0)
+          {n, y + nc.y1 - nc.y0 + 1}
+        _ ->
+          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y - nc.y0)
+                |> vlines(y, y-nc.y0-1, 0, wmax+2)
+                |> vlines(y-nc.y0+1, y-nc.y0+nc.y1, 0, wmax+2)
+                |> poke("├", 0, y-nc.y0) |> poke("┤", wmax+2, y-nc.y0)
+          {n, y + nc.y1 - nc.y0 + 1}
+      end
+    end)
+    n
   end
 
   def parse(v) do
 
     case v do
-      
+
       # Parse a grammar consisting of a list of named rules
       {:__block__,  _, ps} ->
         n = new()
@@ -111,15 +134,15 @@ defmodule Xpeg.Railroad do
         nc_patt = parse(patt)
         nc_end = new() |> poke("──o")
         nc_name |> add(nc_patt, nc_name.w) |> add(nc_end, nc_name.w + nc_patt.w)
-      
+
       # infix: '*' Concatenation
       {:*, _, [p1, p2]} ->
         parse(p1) |> mk_concat(parse(p2))
-      
+
       # infix '|': Ordered choice
       {:|, _, [p1, p2]} ->
-        mk_choice(parse(p1), parse(p2))
-      
+        mk_choice(p1, p2)
+
       # prefix '+': one-or-more operator
       {:+, _, [p]} ->
         mk_plus(parse(p))
@@ -173,7 +196,7 @@ defmodule Xpeg.Railroad do
       # String literal
       v when is_binary(v) ->
         new |> poke(inspect(v))
-      
+
       # Number, :any operator with non-zero count
       v when is_number(v) ->
         new |> poke(to_string(v))
@@ -190,8 +213,7 @@ defmodule Xpeg.Railroad do
 
   end
 
-
-  def render(map, n, dx, dy) do
+  defp render(map, n, dx, dy) do
     map = Enum.reduce(n.kids, map, fn kid, map ->
       render(map, kid.n, kid.dx+dx, kid.dy+dy)
     end)
