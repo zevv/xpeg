@@ -132,7 +132,7 @@ converts the last captured value on the `captures` list to an integer:
 ```elixir
 p = peg List do
   List <- Word * star( "," * Word )
-  Word <- cap(+{'0'..'9'}) * 
+  Word <- str(+{'0'..'9'}) * 
     fn [v|cs] -> 
       [String.to_integer(v)|cs]
     end
