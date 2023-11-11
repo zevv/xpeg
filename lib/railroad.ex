@@ -1,4 +1,3 @@
-
 defmodule Xpeg.Railroad do
 
   def new(w \\ 0, y0 \\ 0, y1 \\ 0) do
@@ -89,7 +88,7 @@ defmodule Xpeg.Railroad do
     ns = [] |> add_to_choice(p1) |> add_to_choice(p2) |> Enum.reverse() |> Enum.map(&parse/1)
     last = Enum.count(ns)-1
     wmax = (Enum.map(ns, &(&1.w)) |> Enum.max()) + 2
-    {n, y} = Enum.reduce(Enum.with_index(ns), {new(), 0}, fn {nc, i}, {n, y} ->
+    {n, _y} = Enum.reduce(Enum.with_index(ns), {new(), 0}, fn {nc, i}, {n, y} ->
       case i do
         0 ->
           n = n |> add(pad(nc, 1, wmax-nc.w), 1, y)
@@ -182,7 +181,7 @@ defmodule Xpeg.Railroad do
         parse(p)
 
       # Code block
-      {:fn, _, code} ->
+      {:fn, _, _code} ->
         new() |> poke("fn()")
 
       # Aliased atoms, for Capital names instaed of :colon names
@@ -195,13 +194,13 @@ defmodule Xpeg.Railroad do
 
       # String literal
       v when is_binary(v) ->
-        new |> poke(inspect(v))
+        new() |> poke(inspect(v))
 
       # Number, :any operator with non-zero count
       v when is_number(v) ->
-        new |> poke(to_string(v))
+        new() |> poke(to_string(v))
 
-      {what, _, val} ->
+      {what, _, _val} ->
         new()
         |> poke(inspect({what}))
 
@@ -217,7 +216,7 @@ defmodule Xpeg.Railroad do
     map = Enum.reduce(n.kids, map, fn kid, map ->
       render(map, kid.n, kid.dx+dx, kid.dy+dy)
     end)
-    map = Enum.reduce(n.syms, map, fn sym, map ->
+    Enum.reduce(n.syms, map, fn sym, map ->
       Map.put(map, {sym.x+dx, sym.y+dy}, sym.c)
     end)
   end
