@@ -14,7 +14,7 @@ parser.
 Xpeg is a pure Elixir pattern matching library. It provides macros to compile
 patterns and grammars (PEGs) to Elixir function which will parse a string and
 collect selected parts of the input. PEGs are not unlike regular expressions,
-but offer more power and flexibility, and have less ambiguities. (More about 
+but offer more power and flexibility, and have less ambiguities. (More about
 PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
 ```elixir
@@ -31,7 +31,7 @@ languages or domain specific languages.
 Some Xpeg highlights:
 
 - Grammar definitions and Elixir code acting on or transforming the parsed
-  fragments can be freely mixed. 
+  fragments can be freely mixed.
 
 - Xpeg-generated parsers can be used both at run and at compile time.
 
@@ -132,8 +132,8 @@ converts the last captured value on the `captures` list to an integer:
 ```elixir
 p = peg List do
   List <- Word * star( "," * Word )
-  Word <- str(+{'0'..'9'}) * 
-    fn [v|cs] -> 
+  Word <- str(+{'0'..'9'}) *
+    fn [v|cs] ->
       [String.to_integer(v)|cs]
     end
 end
@@ -297,24 +297,24 @@ At runtime, the following trace is generated. The trace consists of a number of 
 - The instruction being executed.
 
 ```elixir
-    0 | 'one two'              | {:call, 6} 
-    6 | 'one two'              | {:set, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | 'ne two'               | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | 'e two'                | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | ' two'                 | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    8 | ' two'                 | {:return} 
-    1 | ' two'                 | {:choice, 5, 1} 
-    2 | ' two'                 | {:chr, 32} 
-    3 | 'two'                  | {:call, 6} 
-    6 | 'two'                  | {:set, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | 'wo'                   | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | 'o'                    | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    7 | []                     | {:span, 'abcdefghijklmnopqrstuvwxyz'} 
-    8 | []                     | {:return} 
-    4 | []                     | {:commit} 
-    1 | []                     | {:choice, 5, 1} 
-    2 | []                     | {:chr, 32} 
- fail | []                     | {:fail} 
+    0 | 'one two'              | {:call, 6}
+    6 | 'one two'              | {:set, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | 'ne two'               | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | 'e two'                | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | ' two'                 | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    8 | ' two'                 | {:return}
+    1 | ' two'                 | {:choice, 5, 1}
+    2 | ' two'                 | {:chr, 32}
+    3 | 'two'                  | {:call, 6}
+    6 | 'two'                  | {:set, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | 'wo'                   | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | 'o'                    | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    7 | []                     | {:span, 'abcdefghijklmnopqrstuvwxyz'}
+    8 | []                     | {:return}
+    4 | []                     | {:commit}
+    1 | []                     | {:choice, 5, 1}
+    2 | []                     | {:chr, 32}
+ fail | []                     | {:fail}
     5 | []                     | {:return}
 ```
 
@@ -325,4 +325,3 @@ The exact meaning of the IR instructions is not discussed here
 
 - I do not like the `star()` and `opt()` syntax of the AST, but given the limited
   support for prefix operators in Elixir I'm not yet sure how to make this better
-
