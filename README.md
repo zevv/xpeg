@@ -54,7 +54,7 @@ end
 ## Quickstart
 
 Here is a simple example showing the power of Xpeg: The macro `peg` compiles a
-grammar definition into a `parser` functiion, which is used to match a string and
+grammar definition into a `parser` function, which is used to match a string and
 place the key-value pairs into a list of tuples:
 
 ```elixir
@@ -217,7 +217,7 @@ float(P)             # Adds the matched float to the capture list
 
 Elixir function:
 
-    fn(captures)    # Elixir function for transormations
+    fn(captures)    # Elixir function for transformations
 
 ```
 
