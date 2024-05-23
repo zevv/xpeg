@@ -46,7 +46,7 @@ Some Xpeg highlights:
 ```elixir
 def deps do
   [
-    {:xpeg, "~> 0.9.0"}
+    {:xpeg, "~> 0.9.1"}
   ]
 end
 ```
