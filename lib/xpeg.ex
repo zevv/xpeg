@@ -4,7 +4,7 @@ defmodule Xpeg do
   XPeg is a pure Elixir pattern matching library. It provides macros to compile
   patterns and grammars (PEGs) to Elixir function which will parse a string and
   collect selected parts of the input. PEGs are not unlike regular expressions,
-  but offer more power and flexibility, and have less ambiguities. (More about 
+  but offer more power and flexibility, and have less ambiguities. (More about
   PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
   Some use cases where XPeg is useful are configuration or data file parsers,
@@ -23,6 +23,12 @@ defmodule Xpeg do
       Xpeg.match(p, "grass=4,horse=1,star=2")
 
   """
+
+  @doc false
+  def normalize_char(char) when is_list(char), do: char
+  def normalize_char(char) when is_binary(char), do: String.to_charlist(char)
+  def normalize_char({:<<>>, _, [char]}), do: String.to_charlist(char)
+  def normalize_char(char), do: char
 
   @doc false
   defp collect(stack, acc, caps) do
@@ -127,8 +133,8 @@ defmodule Xpeg do
   - `:dump_graph` - if `true`, generate a graphical 'railroad' diagram
     of the grammar at compile time
   - `:userdata` - if `true`, elixir functions that are embedded in the grammar
-    take an additional accumulator argument and should return a tuple 
-    `{captures | acc}` - the resulting accumulator value is available as 
+    take an additional accumulator argument and should return a tuple
+    `{captures | acc}` - the resulting accumulator value is available as
     the `userdata` field in the return value of the `match()1 function
 
   """
@@ -148,6 +154,16 @@ defmodule Xpeg do
   Define a grammar with one anonymous rule.
   """
   defmacro patt(v) do
+    # Convert string literals to charlists before parsing
+    v =
+      Macro.prewalk(v, fn
+        {:<<>>, _meta, [string]} when is_binary(string) ->
+          string
+
+        other ->
+          other
+      end)
+
     {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
 
     quote do
@@ -168,10 +184,9 @@ defmodule Xpeg do
     module = elem(module, 1)
 
     s =
-      if is_binary(s) do
-        to_charlist(s)
-      else
-        s
+      cond do
+        is_binary(s) -> to_charlist(s)
+        true -> s
       end
 
     {t1, _} = :erlang.statistics(:runtime)

@@ -29,6 +29,7 @@ defmodule XpegTest do
 
   test "set" do
     run(patt({'a'}), "a")
+    run(patt({'a'}), "a")
     run(patt({'b'}), "a", :error)
     run(patt({'a', 'b'}), "a")
     run(patt({'a', 'b'}), "b")
@@ -60,6 +61,42 @@ defmodule XpegTest do
     run(patt({'a'..'c', 'e'..'g'}), "e")
     run(patt({'a'..'c', 'e'..'g'}), "f")
     run(patt({'a'..'c', 'e'..'g'}), "g")
+  end
+
+  test "sigil" do
+    run(patt({~c"a"}), "a")
+    run(patt({~c"a"}), "a")
+    run(patt({~c"b"}), "a", :error)
+    run(patt({~c"a", ~c"b"}), "a")
+    run(patt({~c"a", ~c"b"}), "b")
+    run(patt({~c"a", ~c"b"}), "c", :error)
+    run(patt({~c"a", ~c"b", ~c"c"}), "a")
+    run(patt({~c"a", ~c"b", ~c"c"}), "b")
+    run(patt({~c"a", ~c"b", ~c"c"}), "c")
+    run(patt({~c"a", ~c"b", ~c"c"}), "d", :error)
+    run(patt({~c"a"..~c"c"}), "a")
+    run(patt({~c"a"..~c"c"}), "b")
+    run(patt({~c"a"..~c"c"}), "c")
+    run(patt({~c"a"..~c"c"}), "d", :error)
+    run(patt({~c"a"..~c"c", ~c"d"}), "a")
+    run(patt({~c"a"..~c"c", ~c"d"}), "b")
+    run(patt({~c"a"..~c"c", ~c"d"}), "c")
+    run(patt({~c"a"..~c"c", ~c"d"}), "d")
+    run(patt({~c"a", ~c"b"..~c"d"}), "a")
+    run(patt({~c"a", ~c"b"..~c"d"}), "b")
+    run(patt({~c"a", ~c"b"..~c"d"}), "c")
+    run(patt({~c"a", ~c"b"..~c"d"}), "d")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "a")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "b")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "c")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "d")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "a")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "b")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "c")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "d", :error)
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "e")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "f")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "g")
   end
 
   test "zero-or-one" do

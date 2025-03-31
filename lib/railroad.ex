@@ -262,7 +262,7 @@ defmodule Xpeg.Railroad do
 
     for y <- ylo..yhi do
       for x <- xlo..xhi do
-        Map.get(map, {x, y}, ' ')
+        Map.get(map, {x, y}, ~c" ")
       end
       |> Enum.join("")
     end
