@@ -141,7 +141,7 @@ defmodule Xpeg.Parser do
       {:fn, meta, [code]} ->
         [{:code, {:fn, meta, [code]}}]
 
-      # Aliased atoms, for Capital names instaed of :colon names
+      # Aliased atoms, for Capital names instead of :colon names
       {:__aliases__, _, [id]} ->
         parse(grammar, id)
 

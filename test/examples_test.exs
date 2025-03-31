@@ -4,7 +4,7 @@ defmodule ExamplesTest do
   import Xpeg
 
   test "splitter" do
-    # Split a comma seperated list of key/value pairs
+    # Split a comma separated list of key/value pairs
 
     p =
       peg Dict do
@@ -18,8 +18,8 @@ defmodule ExamplesTest do
     assert(r.captures == [{"star", 2}, {"horse", 1}, {"grass", 4}])
   end
 
-  test "arithmatic-expressions" do
-    # This gramars parse simple arithmatic expressions into AST
+  test "arithmetic-expressions" do
+    # This gramars parse simple arithmetic expressions into AST
 
     p =
       peg Exp do

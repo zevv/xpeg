@@ -217,7 +217,7 @@ defmodule Xpeg.Railroad do
       {:fn, _, _code} ->
         new() |> poke("fn()")
 
-      # Aliased atoms, for Capital names instaed of :colon names
+      # Aliased atoms, for Capital names instead of :colon names
       {:__aliases__, _, [id]} ->
         new() |> poke("[#{id}]")
 

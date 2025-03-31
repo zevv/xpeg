@@ -149,7 +149,7 @@ which results in the following captures:
 
 
 More elaborate examples can be found in [examples_test.exs](/test/examples_test.exs),
-including a parser for arithmatic expressions and a full JSON parser.
+including a parser for arithmetic expressions and a full JSON parser.
 
 
 ## Grammars
