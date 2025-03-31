@@ -44,12 +44,14 @@ defmodule Xpeg.Parser do
 
   # Charset
   defp mk_set(ps) do
-     cs = Enum.reduce(ps, [], fn p, set ->
-       case p do
-         [v] -> [v | set]
-         {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
-       end
-     end)
+    cs =
+      Enum.reduce(ps, [], fn p, set ->
+        case p do
+          [v] -> [v | set]
+          {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
+        end
+      end)
+
     [{:set, cs}]
   end
 
@@ -69,14 +71,13 @@ defmodule Xpeg.Parser do
 
   # Parse a pattern
   def parse(grammar, node) do
-    #IO.inspect (node)
+    # IO.inspect (node)
 
     case node do
-
       # Parse a grammar consisting of a list of named rules
-      {:__block__,  _, ps} ->
+      {:__block__, _, ps} ->
         Enum.reduce(ps, grammar, fn rule, grammar -> parse(grammar, rule) end)
-  
+
       # Parse one named rule
       {:<-, _, [name, patt]} ->
         Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
@@ -133,7 +134,7 @@ defmodule Xpeg.Parser do
         List.duplicate(parse(grammar, p), n) |> List.flatten()
 
       # Capture
-      {captype, _, [p]} when captype in [:str, :int, :float]->
+      {captype, _, [p]} when captype in [:str, :int, :float] ->
         [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, captype}]
 
       # Code block
@@ -143,7 +144,7 @@ defmodule Xpeg.Parser do
       # Aliased atoms, for Capital names instaed of :colon names
       {:__aliases__, _, [id]} ->
         parse(grammar, id)
-  
+
       # Delegate two-tuple :{} set to the above parse function
       {p1, p2} ->
         parse(grammar, {:{}, 0, [p1, p2]})
@@ -166,16 +167,17 @@ defmodule Xpeg.Parser do
 
       # Charlist
       v when is_list(v) ->
-        for c <- v do {:chr, c} end
-            
+        for c <- v do
+          {:chr, c}
+        end
+
       {_, meta, e} ->
-        raise("XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")
+        raise(
+          "XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
+        )
 
       e ->
-        raise("XPeg: unhandled literal #{inspect e}")
-
+        raise("XPeg: unhandled literal #{inspect(e)}")
     end
   end
-
-
 end

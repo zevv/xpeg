@@ -36,11 +36,11 @@ defmodule Xpeg.MixProject do
 
   defp deps do
     [
-      {:ex_doc, "~> 0.14", only: [:dev], runtime: false},
-      #{:exprof, "~> 0.2.0", only: [:dev, :test], runtime: false},
-      #{:poison, "~> 5.0", only: [:dev, :test], runtime: false},
-      #{:jason, "~> 1.2", only: [:dev, :test], runtime: false},
-      #{:eflame, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.14", only: [:dev], runtime: false}
+      # {:exprof, "~> 0.2.0", only: [:dev, :test], runtime: false},
+      # {:poison, "~> 5.0", only: [:dev, :test], runtime: false},
+      # {:jason, "~> 1.2", only: [:dev, :test], runtime: false},
+      # {:eflame, "~> 1.0", only: [:dev, :test], runtime: false},
     ]
   end
 end

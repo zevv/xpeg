@@ -1,5 +1,4 @@
 defmodule Xpeg do
-
   @moduledoc """
 
   XPeg is a pure Elixir pattern matching library. It provides macros to compile
@@ -33,18 +32,25 @@ defmodule Xpeg do
 
       {[{:close, _sc, sic, type} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
-         l = Enum.take(so, len)
+        l = Enum.take(so, len)
 
         # Convert capture to requested type
-        cap = case type do
-          :str -> to_string(l)
-          :int -> :erlang.list_to_integer(l)
-          :float -> try do
-              :erlang.list_to_float(l)
-          rescue
-            _ -> elem(Float.parse(to_string(l)), 0)
+        cap =
+          case type do
+            :str ->
+              to_string(l)
+
+            :int ->
+              :erlang.list_to_integer(l)
+
+            :float ->
+              try do
+                :erlang.list_to_float(l)
+              rescue
+                _ -> elem(Float.parse(to_string(l)), 0)
+              end
           end
-        end
+
         collect(stack, acc, [cap | caps])
 
       {_, acc} ->
@@ -58,6 +64,7 @@ defmodule Xpeg do
       cap_stack
       |> Enum.reverse()
       |> collect([], [])
+
     {cap_stack, captures ++ captures_prev}
   end
 
@@ -67,7 +74,8 @@ defmodule Xpeg do
       {:code, code} -> [:code, Macro.to_string(code)]
       inst -> Tuple.to_list(inst)
     end
-    |> Enum.map(&inspect/1) |> Enum.join(" ")
+    |> Enum.map(&inspect/1)
+    |> Enum.join(" ")
   end
 
   @doc false
@@ -76,7 +84,7 @@ defmodule Xpeg do
     s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
-  
+
   @doc false
   def unalias(name) do
     case name do
@@ -87,10 +95,12 @@ defmodule Xpeg do
 
   @doc false
   defp make(start, rules, options) do
-    ast = %{start: unalias(start), rules: rules}
-    |> Xpeg.Linker.link_grammar(options)
-    |> Xpeg.Codegen.emit(options)
-    id = String.to_atom("#{inspect start}-#{inspect(make_ref())}")
+    ast =
+      %{start: unalias(start), rules: rules}
+      |> Xpeg.Linker.link_grammar(options)
+      |> Xpeg.Codegen.emit(options)
+
+    id = String.to_atom("#{inspect(start)}-#{inspect(make_ref())}")
     {id, ast}
   end
 
@@ -99,6 +109,7 @@ defmodule Xpeg do
   """
   defmacro peg(start, _rules = [{:do, v}]) do
     {id, ast} = make(start, Xpeg.Parser.parse(v), [])
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -122,8 +133,12 @@ defmodule Xpeg do
 
   """
   defmacro peg(start, options, [{:do, v}]) do
-    if options[:dump_graph] do Xpeg.Railroad.draw(v) end
+    if options[:dump_graph] do
+      Xpeg.Railroad.draw(v)
+    end
+
     {id, ast} = make(start, Xpeg.Parser.parse(v), options)
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -134,6 +149,7 @@ defmodule Xpeg do
   """
   defmacro patt(v) do
     {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -148,11 +164,15 @@ defmodule Xpeg do
   - `userdata`: Returned userdata
   """
   def match(module, s, userdata \\ nil) do
-
     ctx = userdata
     module = elem(module, 1)
 
-    s = if is_binary(s) do to_charlist(s) else s end
+    s =
+      if is_binary(s) do
+        to_charlist(s)
+      else
+        s
+      end
 
     {t1, _} = :erlang.statistics(:runtime)
     {ctx, rest, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
@@ -163,13 +183,11 @@ defmodule Xpeg do
       captures: captures,
       result: result,
       rest: rest,
-      time: (t2-t1) / 1000,
+      time: (t2 - t1) / 1000,
       match_len: si,
-      userdata: ctx,
+      userdata: ctx
     }
-
   end
-
 end
 
 # set ft=elixir
