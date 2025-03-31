@@ -55,8 +55,13 @@ defmodule Xpeg.Parser do
           hi_chars = mk_set([hi]) |> Enum.flat_map(fn {:set, chars} -> chars end)
           Enum.uniq(Enum.to_list(Enum.min(lo_chars)..Enum.max(hi_chars)) ++ set)
 
-        {:sigil_c, _, [chars, _]} ->
-          # Handle ~c sigil format by converting to charlist
+        {:sigil_c, _, [{:<<>>, _, [chars]}, _]} when is_binary(chars) ->
+          # Handle ~c sigil format where chars is wrapped in a tuple
+          chars_list = to_charlist(chars)
+          Enum.uniq(chars_list ++ set)
+
+        {:sigil_c, _, [chars, _]} when is_binary(chars) ->
+          # Handle ~c sigil format where chars is directly a binary
           chars_list = to_charlist(chars)
           Enum.uniq(chars_list ++ set)
 
