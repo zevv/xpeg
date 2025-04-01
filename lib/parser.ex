@@ -45,11 +45,37 @@ defmodule Xpeg.Parser do
   # Charset
   defp mk_set(ps) do
      cs = Enum.reduce(ps, [], fn p, set ->
-       case p do
-         [v] -> [v | set]
-         {:.., _, [[lo], [hi]]} -> Enum.uniq(Enum.to_list(lo..hi) ++ set)
-       end
-     end)
+      case p do
+        [v] ->
+          [v | set]
+
+        {:.., _, [lo, hi]} ->
+          # Recursively parse lo and hi to handle nested sigils
+          lo_chars = mk_set([lo]) |> Enum.flat_map(fn {:set, chars} -> chars end)
+          hi_chars = mk_set([hi]) |> Enum.flat_map(fn {:set, chars} -> chars end)
+          Enum.uniq(Enum.to_list(Enum.min(lo_chars)..Enum.max(hi_chars)) ++ set)
+
+        {:sigil_c, _, [{:<<>>, _, [chars]}, _]} when is_binary(chars) ->
+          # Handle ~c sigil format where chars is wrapped in a tuple
+          chars_list = to_charlist(chars)
+          Enum.uniq(chars_list ++ set)
+
+        {:sigil_c, _, [chars, _]} when is_binary(chars) ->
+          # Handle ~c sigil format where chars is directly a binary
+          chars_list = to_charlist(chars)
+          Enum.uniq(chars_list ++ set)
+
+        v when is_binary(v) ->
+          # Handle string literals directly
+          chars_list = to_charlist(v)
+          Enum.uniq(chars_list ++ set)
+
+        v when is_list(v) and length(v) == 1 ->
+          # Handle single character charlist
+          [hd(v) | set]
+      end
+    end)
+
     [{:set, cs}]
   end
 
@@ -121,7 +147,14 @@ defmodule Xpeg.Parser do
 
       # Charset
       {:{}, _, ps} ->
-        mk_set(ps)
+        # Preprocess each element in the set to handle string literals
+        processed_ps =
+          Enum.map(ps, fn
+            {:<<>>, _meta, [string]} when is_binary(string) -> string
+            other -> other
+          end)
+
+        mk_set(processed_ps)
 
       # Repetition count [low..hi]
       {{:., _, [Access, :get]}, _, [p, {:.., _, [n1, n2]}]} ->
@@ -167,6 +200,16 @@ defmodule Xpeg.Parser do
       # Charlist
       v when is_list(v) ->
         for c <- v do {:chr, c} end
+        
+      # Add support for string literals in AST format
+      {:<<>>, _meta, [string]} when is_binary(string) ->
+        {:chr, to_charlist(string)}
+
+      # Add support for sigil format
+      {:sigil_c, _meta, [chars, _]} ->
+        for c <- to_charlist(chars) do
+          {:chr, c}
+        end
             
       {_, meta, e} ->
         raise("XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")

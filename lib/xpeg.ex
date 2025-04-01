@@ -133,6 +133,15 @@ defmodule Xpeg do
   Define a grammar with one anonymous rule.
   """
   defmacro patt(v) do
+    # Convert string literals to charlists before parsing
+    v = Macro.prewalk(v, fn
+      {:<<>>, _meta, [string]} when is_binary(string) ->
+        string
+
+      other ->
+        other
+    end)
+      
     {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))

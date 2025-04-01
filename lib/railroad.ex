@@ -228,7 +228,7 @@ defmodule Xpeg.Railroad do
     {ylo, yhi} = Enum.map(Map.keys(map), &elem(&1, 1)) |> Enum.min_max()
     for y <- ylo .. yhi do
       for x <- xlo .. xhi do
-        Map.get(map, {x, y}, ' ')
+        Map.get(map, {x, y}, ~c" ")
       end
       |> Enum.join("")
     end

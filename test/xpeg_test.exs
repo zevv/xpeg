@@ -21,6 +21,7 @@ defmodule XpegTest do
     run(patt("a"), "b", :error)
     run(patt("abc"), "abc")
     run(patt('abc'), "abc")
+    run(patt(~c"abc"), "abc")
     run(patt("abc"), "-bcd", :error)
     run(patt("abc"), "a-cd", :error)
     run(patt("abc"), "ab-d", :error)
@@ -61,6 +62,42 @@ defmodule XpegTest do
     run(patt({'a'..'c', 'e'..'g'}), "f")
     run(patt({'a'..'c', 'e'..'g'}), "g")
   end
+  
+  test "set using sigil" do
+    run(patt({~c"a"}), "a")
+    run(patt({~c"a"}), "a")
+    run(patt({~c"b"}), "a", :error)
+    run(patt({~c"a", ~c"b"}), "a")
+    run(patt({~c"a", ~c"b"}), "b")
+    run(patt({~c"a", ~c"b"}), "c", :error)
+    run(patt({~c"a", ~c"b", ~c"c"}), "a")
+    run(patt({~c"a", ~c"b", ~c"c"}), "b")
+    run(patt({~c"a", ~c"b", ~c"c"}), "c")
+    run(patt({~c"a", ~c"b", ~c"c"}), "d", :error)
+    run(patt({~c"a"..~c"c"}), "a")
+    run(patt({~c"a"..~c"c"}), "b")
+    run(patt({~c"a"..~c"c"}), "c")
+    run(patt({~c"a"..~c"c"}), "d", :error)
+    run(patt({~c"a"..~c"c", ~c"d"}), "a")
+    run(patt({~c"a"..~c"c", ~c"d"}), "b")
+    run(patt({~c"a"..~c"c", ~c"d"}), "c")
+    run(patt({~c"a"..~c"c", ~c"d"}), "d")
+    run(patt({~c"a", ~c"b"..~c"d"}), "a")
+    run(patt({~c"a", ~c"b"..~c"d"}), "b")
+    run(patt({~c"a", ~c"b"..~c"d"}), "c")
+    run(patt({~c"a", ~c"b"..~c"d"}), "d")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "a")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "b")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "c")
+    run(patt({~c"a", ~c"b"..~c"c", ~c"d"}), "d")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "a")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "b")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "c")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "d", :error)
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "e")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "f")
+    run(patt({~c"a"..~c"c", 'e'..~c"g"}), "g")
+  end
 
   test "zero-or-one" do
     run(patt("a" * opt("b") * "c"), "ac")
@@ -74,16 +111,34 @@ defmodule XpegTest do
     run(patt(star('a') * 'b'), "bbbbb")
     run(patt(star('a') * 'b'), "caaab", :error)
   end
+  
+  test "zero-or-more using sigils" do
+    run(patt(star(~c"a")), "aaaa")
+    run(patt(star(~c"a") * ~c"b"), "aaaab")
+    run(patt(star(~c"a") * ~c"b"), "bbbbb")
+    run(patt(star(~c"a") * ~c"b"), "caaab", :error)
+  end
 
   test "one-or-more" do
     run(patt(+'a' * 'b'), "aaaab")
     run(patt(+'a' * 'b'), "ab")
     run(patt(+'a' * 'b'), "b", :error)
   end
+  
+  test "one-or-more using sigils" do
+    run(patt(+~c"a" * ~c"b"), "aaaab")
+    run(patt(+~c"a" * ~c"b"), "ab")
+    run(patt(+~c"a" * ~c"b"), "b", :error)
+  end
 
   test "not-predicate" do
     run(patt('a' * !'b'), "ac")
     run(patt('a' * !'b'), "ab", :error)
+  end
+  
+  test "not-predicate using sigils" do
+    run(patt(~c"a" * !~c"b"), "ac")
+    run(patt(~c"a" * !~c"b"), "ab", :error)
   end
 
   test "and-predicate" do
@@ -111,6 +166,18 @@ defmodule XpegTest do
     run(patt('a'[0..1] * !1), "a")
     run(patt('a'[0..1] * !1), "aa", :error)
   end
+  
+  test "[m..n]: count using sigils" do
+    run(patt(~c"a"[2..4] * !1), "", :error)
+    run(patt(~c"a"[2..4] * !1), "a", :error)
+    run(patt(~c"a"[2..4] * !1), "aa")
+    run(patt(~c"a"[2..4] * !1), "aaa")
+    run(patt(~c"a"[2..4] * !1), "aaaa")
+    run(patt(~c"a"[2..4] * !1), "aaaaa", :error)
+    run(patt(~c"a"[0..1] * !1), "")
+    run(patt(~c"a"[0..1] * !1), "a")
+    run(patt(~c"a"[0..1] * !1), "aa", :error)
+  end
 
   test "|: ordered choice" do
     run(patt("ab" | "cd"), "ab")
@@ -128,6 +195,7 @@ defmodule XpegTest do
     run(patt("abcd" - "abcdef"), "abcdefgh", :error)
     run(patt("abcd" - "abcdf"), "abcdefgh")
     run(patt({'a','b','c'} - {'a'}), "a", :error)
+    run(patt({~c"a", ~c"b", ~c"c"} - {~c"a"}), "a", :error)
   end
 
   test "Misc combos" do
@@ -137,6 +205,15 @@ defmodule XpegTest do
     run(patt('a' | 'b' * 'c' | 'd' * 'e' * 'f'), "def")
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ac")
     run(patt({'a','b'} * 'c' | {'a','b'} * 'e'), "ae")
+  end
+  
+  test "Misc combos using sigils" do
+    run(patt(~c"a" | ~c"b" * ~c"c"), "a")
+    run(patt(~c"a" | ~c"b" * ~c"c" | ~c"d" * ~c"e" * 'f'), "a")
+    run(patt(~c"a" | ~c"b" * ~c"c" | ~c"d" * ~c"e" * 'f'), "bc")
+    run(patt(~c"a" | ~c"b" * ~c"c" | ~c"d" * ~c"e" * 'f'), "def")
+    run(patt({~c"a", ~c"b"} * ~c"c" | {~c"a", ~c"b"} * ~c"e"), "ac")
+    run(patt({~c"a", ~c"b"} * ~c"c" | {~c"a", ~c"b"} * ~c"e"), "ae")
   end
   
   test "grammars" do
