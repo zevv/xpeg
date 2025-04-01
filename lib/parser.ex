@@ -44,37 +44,38 @@ defmodule Xpeg.Parser do
 
   # Charset
   defp mk_set(ps) do
-     cs = Enum.reduce(ps, [], fn p, set ->
-      case p do
-        [v] ->
-          [v | set]
+    cs =
+      Enum.reduce(ps, [], fn p, set ->
+        case p do
+          [v] ->
+            [v | set]
 
-        {:.., _, [lo, hi]} ->
-          # Recursively parse lo and hi to handle nested sigils
-          lo_chars = mk_set([lo]) |> Enum.flat_map(fn {:set, chars} -> chars end)
-          hi_chars = mk_set([hi]) |> Enum.flat_map(fn {:set, chars} -> chars end)
-          Enum.uniq(Enum.to_list(Enum.min(lo_chars)..Enum.max(hi_chars)) ++ set)
+          {:.., _, [lo, hi]} ->
+            # Recursively parse lo and hi to handle nested sigils
+            lo_chars = mk_set([lo]) |> Enum.flat_map(fn {:set, chars} -> chars end)
+            hi_chars = mk_set([hi]) |> Enum.flat_map(fn {:set, chars} -> chars end)
+            Enum.uniq(Enum.to_list(Enum.min(lo_chars)..Enum.max(hi_chars)) ++ set)
 
-        {:sigil_c, _, [{:<<>>, _, [chars]}, _]} when is_binary(chars) ->
-          # Handle ~c sigil format where chars is wrapped in a tuple
-          chars_list = to_charlist(chars)
-          Enum.uniq(chars_list ++ set)
+          {:sigil_c, _, [{:<<>>, _, [chars]}, _]} when is_binary(chars) ->
+            # Handle ~c sigil format where chars is wrapped in a tuple
+            chars_list = to_charlist(chars)
+            Enum.uniq(chars_list ++ set)
 
-        {:sigil_c, _, [chars, _]} when is_binary(chars) ->
-          # Handle ~c sigil format where chars is directly a binary
-          chars_list = to_charlist(chars)
-          Enum.uniq(chars_list ++ set)
+          {:sigil_c, _, [chars, _]} when is_binary(chars) ->
+            # Handle ~c sigil format where chars is directly a binary
+            chars_list = to_charlist(chars)
+            Enum.uniq(chars_list ++ set)
 
-        v when is_binary(v) ->
-          # Handle string literals directly
-          chars_list = to_charlist(v)
-          Enum.uniq(chars_list ++ set)
+          v when is_binary(v) ->
+            # Handle string literals directly
+            chars_list = to_charlist(v)
+            Enum.uniq(chars_list ++ set)
 
-        v when is_list(v) and length(v) == 1 ->
-          # Handle single character charlist
-          [hd(v) | set]
-      end
-    end)
+          v when is_list(v) and length(v) == 1 ->
+            # Handle single character charlist
+            [hd(v) | set]
+        end
+      end)
 
     [{:set, cs}]
   end
@@ -95,14 +96,13 @@ defmodule Xpeg.Parser do
 
   # Parse a pattern
   def parse(grammar, node) do
-    #IO.inspect (node)
+    # IO.inspect (node)
 
     case node do
-
       # Parse a grammar consisting of a list of named rules
-      {:__block__,  _, ps} ->
+      {:__block__, _, ps} ->
         Enum.reduce(ps, grammar, fn rule, grammar -> parse(grammar, rule) end)
-  
+
       # Parse one named rule
       {:<-, _, [name, patt]} ->
         Map.put(grammar, Xpeg.unalias(name), parse(grammar, patt))
@@ -166,17 +166,17 @@ defmodule Xpeg.Parser do
         List.duplicate(parse(grammar, p), n) |> List.flatten()
 
       # Capture
-      {captype, _, [p]} when captype in [:str, :int, :float]->
+      {captype, _, [p]} when captype in [:str, :int, :float] ->
         [{:capopen}] ++ parse(grammar, p) ++ [{:capclose, captype}]
 
       # Code block
       {:fn, meta, [code]} ->
         [{:code, {:fn, meta, [code]}}]
 
-      # Aliased atoms, for Capital names instaed of :colon names
+      # Aliased atoms, for Capital names instead of :colon names
       {:__aliases__, _, [id]} ->
         parse(grammar, id)
-  
+
       # Delegate two-tuple :{} set to the above parse function
       {p1, p2} ->
         parse(grammar, {:{}, 0, [p1, p2]})
@@ -199,8 +199,10 @@ defmodule Xpeg.Parser do
 
       # Charlist
       v when is_list(v) ->
-        for c <- v do {:chr, c} end
-        
+        for c <- v do
+          {:chr, c}
+        end
+
       # Add support for string literals in AST format
       {:<<>>, _meta, [string]} when is_binary(string) ->
         {:chr, to_charlist(string)}
@@ -210,15 +212,14 @@ defmodule Xpeg.Parser do
         for c <- to_charlist(chars) do
           {:chr, c}
         end
-            
+
       {_, meta, e} ->
-        raise("XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n")
+        raise(
+          "XPeg: #{inspect(meta)}: Syntax error at '#{Macro.to_string(e)}' \n\n   #{inspect(e)}\n"
+        )
 
       e ->
-        raise("XPeg: unhandled literal #{inspect e}")
-
+        raise("XPeg: unhandled literal #{inspect(e)}")
     end
   end
-
-
 end

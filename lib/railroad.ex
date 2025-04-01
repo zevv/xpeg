@@ -1,32 +1,40 @@
 defmodule Xpeg.Railroad do
-
   def new(w \\ 0, y0 \\ 0, y1 \\ 0) do
-    %{ w: w, y0: y0, y1: y1, kids: [], syms: [] }
+    %{w: w, y0: y0, y1: y1, kids: [], syms: []}
   end
 
   def poke(n, s, x \\ 0, y \\ 0) when is_binary(s) do
-    syms = s
-           |> String.graphemes()
-           |> Enum.with_index()
-           |> Enum.reduce(n.syms, fn {c, i}, syms -> [ %{x: x+i, y: y, c: c} | syms] end)
-    %{n | syms: syms, w: max(n.w, String.length(s)+x), y0: min(n.y0, y), y1: max(n.y1, y) }
+    syms =
+      s
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(n.syms, fn {c, i}, syms -> [%{x: x + i, y: y, c: c} | syms] end)
+
+    %{n | syms: syms, w: max(n.w, String.length(s) + x), y0: min(n.y0, y), y1: max(n.y1, y)}
   end
 
   def add(n, nc, dx \\ 0, dy \\ 0) do
     kids = [%{dx: dx, dy: dy, n: nc} | n.kids]
-    %{n | kids: kids, w: max(n.w, nc.w+dx), y0: min(n.y0, nc.y0+dy), y1: max(n.y1, nc.y1+dy)}
+
+    %{
+      n
+      | kids: kids,
+        w: max(n.w, nc.w + dx),
+        y0: min(n.y0, nc.y0 + dy),
+        y1: max(n.y1, nc.y1 + dy)
+    }
   end
 
   def pad(n, l \\ 1, r \\ 1) do
     new(n.w, 0, 0)
     |> poke(String.duplicate("─", l), 0, 0)
     |> add(n, l, 0)
-    |> poke(String.duplicate("─", r), n.w+l, 0)
+    |> poke(String.duplicate("─", r), n.w + l, 0)
   end
 
   defp vlines(n, y, y1, x0, x1) do
     if y <= y1 do
-      n |> poke("│", x0, y) |> poke("│", x1, y) |> vlines(y+1, y1, x0, x1)
+      n |> poke("│", x0, y) |> poke("│", x1, y) |> vlines(y + 1, y1, x0, x1)
     else
       n
     end
@@ -42,37 +50,43 @@ defmodule Xpeg.Railroad do
   end
 
   defp mk_opt(nc) do
-    ntop = new() |> pad(nc.w+2, 0)
+    ntop = new() |> pad(nc.w + 2, 0)
+
     new()
     |> add(pad(nc, 2, 2))
-    |> add(ntop, 1, nc.y0-1)
-    |> vlines(nc.y0, -1, 0, nc.w+3)
-    |> poke("╭", 0, nc.y0-1) |> poke("╮", nc.w + 3, nc.y0-1)
-    |> poke("┴", 0, 0) |> poke("┴", nc.w + 3, 0)
-    |> poke("»", div(nc.w, 2)+2, nc.y0-1)
+    |> add(ntop, 1, nc.y0 - 1)
+    |> vlines(nc.y0, -1, 0, nc.w + 3)
+    |> poke("╭", 0, nc.y0 - 1)
+    |> poke("╮", nc.w + 3, nc.y0 - 1)
+    |> poke("┴", 0, 0)
+    |> poke("┴", nc.w + 3, 0)
+    |> poke("»", div(nc.w, 2) + 2, nc.y0 - 1)
   end
 
   defp mk_plus(nc) do
-    nbot = new() |> pad(nc.w+2, 0)
+    nbot = new() |> pad(nc.w + 2, 0)
+
     new()
-    |> poke("┬", 0, 0) |> poke("┬", nc.w + 3, 0)
+    |> poke("┬", 0, 0)
+    |> poke("┬", nc.w + 3, 0)
     |> add(pad(nc, 2, 2))
-    |> add(nbot, 1, nc.y1+1)
-    |> vlines(1, nc.y1, 0, nc.w+3)
-    |> poke("╰", 0, nc.y1+1) |> poke("╯", nc.w+3, nc.y1+1)
-    |> poke("«", div(nc.w, 2)+2, nc.y1+1)
+    |> add(nbot, 1, nc.y1 + 1)
+    |> vlines(1, nc.y1, 0, nc.w + 3)
+    |> poke("╰", 0, nc.y1 + 1)
+    |> poke("╯", nc.w + 3, nc.y1 + 1)
+    |> poke("«", div(nc.w, 2) + 2, nc.y1 + 1)
   end
 
   defp mk_concat(n1, n2) do
     n1 = pad(n1, 0, 1)
     n2 = pad(n2, 1, 0)
-    n1 |> add(n2, n1.w+1) |> poke("»", n1.w, 0)
+    n1 |> add(n2, n1.w + 1) |> poke("»", n1.w, 0)
   end
 
   defp mk_repeat(nc, i, lo, hi) do
     cond do
-      i < lo -> mk_concat(nc, mk_repeat(nc, i+1, lo, hi))
-      i < hi -> mk_concat(nc, mk_opt(mk_repeat(nc, i+1, lo, hi)))
+      i < lo -> mk_concat(nc, mk_repeat(nc, i + 1, lo, hi))
+      i < hi -> mk_concat(nc, mk_opt(mk_repeat(nc, i + 1, lo, hi)))
       true -> nc
     end
   end
@@ -86,44 +100,62 @@ defmodule Xpeg.Railroad do
 
   defp mk_choice(p1, p2) do
     ns = [] |> add_to_choice(p1) |> add_to_choice(p2) |> Enum.reverse() |> Enum.map(&parse/1)
-    last = Enum.count(ns)-1
-    wmax = (Enum.map(ns, &(&1.w)) |> Enum.max()) + 2
-    {n, _y} = Enum.reduce(Enum.with_index(ns), {new(), 0}, fn {nc, i}, {n, y} ->
-      case i do
-        0 ->
-          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y)
-                |> vlines(y+1, y+nc.y1, 0, wmax+2)
-                |> poke("┬", 0, y) |> poke("┬", wmax+2, y)
-          {n, y + nc.y1 + 1}
-        ^last ->
-          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y - nc.y0)
-                |> vlines(y, y-nc.y0-1, 0, wmax+2)
-                |> poke("╰", 0, y-nc.y0) |> poke("╯", wmax+2, y-nc.y0)
-          {n, y + nc.y1 - nc.y0 + 1}
-        _ ->
-          n = n |> add(pad(nc, 1, wmax-nc.w), 1, y - nc.y0)
-                |> vlines(y, y-nc.y0-1, 0, wmax+2)
-                |> vlines(y-nc.y0+1, y-nc.y0+nc.y1, 0, wmax+2)
-                |> poke("├", 0, y-nc.y0) |> poke("┤", wmax+2, y-nc.y0)
-          {n, y + nc.y1 - nc.y0 + 1}
-      end
-    end)
+    last = Enum.count(ns) - 1
+    wmax = (Enum.map(ns, & &1.w) |> Enum.max()) + 2
+
+    {n, _y} =
+      Enum.reduce(Enum.with_index(ns), {new(), 0}, fn {nc, i}, {n, y} ->
+        case i do
+          0 ->
+            n =
+              n
+              |> add(pad(nc, 1, wmax - nc.w), 1, y)
+              |> vlines(y + 1, y + nc.y1, 0, wmax + 2)
+              |> poke("┬", 0, y)
+              |> poke("┬", wmax + 2, y)
+
+            {n, y + nc.y1 + 1}
+
+          ^last ->
+            n =
+              n
+              |> add(pad(nc, 1, wmax - nc.w), 1, y - nc.y0)
+              |> vlines(y, y - nc.y0 - 1, 0, wmax + 2)
+              |> poke("╰", 0, y - nc.y0)
+              |> poke("╯", wmax + 2, y - nc.y0)
+
+            {n, y + nc.y1 - nc.y0 + 1}
+
+          _ ->
+            n =
+              n
+              |> add(pad(nc, 1, wmax - nc.w), 1, y - nc.y0)
+              |> vlines(y, y - nc.y0 - 1, 0, wmax + 2)
+              |> vlines(y - nc.y0 + 1, y - nc.y0 + nc.y1, 0, wmax + 2)
+              |> poke("├", 0, y - nc.y0)
+              |> poke("┤", wmax + 2, y - nc.y0)
+
+            {n, y + nc.y1 - nc.y0 + 1}
+        end
+      end)
+
     n
   end
 
   def parse(v) do
-
     case v do
-
       # Parse a grammar consisting of a list of named rules
-      {:__block__,  _, ps} ->
+      {:__block__, _, ps} ->
         n = new()
-        {n, _} = Enum.reduce(ps, {n, 0}, fn pc, {n, y} ->
-          nc = parse(pc)
-          n = n |> add(nc, 0, y - nc.y0)
-          y = y + nc.y1 - nc.y0 + 2
-          {n, y}
-        end)
+
+        {n, _} =
+          Enum.reduce(ps, {n, 0}, fn pc, {n, y} ->
+            nc = parse(pc)
+            n = n |> add(nc, 0, y - nc.y0)
+            y = y + nc.y1 - nc.y0 + 2
+            {n, y}
+          end)
+
         n
 
       # Parse one named rule
@@ -150,7 +182,8 @@ defmodule Xpeg.Railroad do
       {:-, _, [p1, p2]} ->
         mk_concat(
           new() |> poke("!") |> add(parse(p2), 1, 0),
-          parse(p1))
+          parse(p1)
+        )
 
       # prefix '*': zero-or-more operator
       {:star, _, [p]} ->
@@ -161,7 +194,7 @@ defmodule Xpeg.Railroad do
         mk_opt(parse(p))
 
       # prefix '!', '@', '&': operator
-      {op, _, p} when op in [ :!, :@, :& ] ->
+      {op, _, p} when op in [:!, :@, :&] ->
         new() |> poke(to_string(op)) |> add(parse(p), 1, 0)
 
       # Charset
@@ -184,7 +217,7 @@ defmodule Xpeg.Railroad do
       {:fn, _, _code} ->
         new() |> poke("fn()")
 
-      # Aliased atoms, for Capital names instaed of :colon names
+      # Aliased atoms, for Capital names instead of :colon names
       {:__aliases__, _, [id]} ->
         new() |> poke("[#{id}]")
 
@@ -207,17 +240,17 @@ defmodule Xpeg.Railroad do
       e ->
         new()
         |> poke(inspect(e))
-
     end
-
   end
 
   defp render(map, n, dx, dy) do
-    map = Enum.reduce(n.kids, map, fn kid, map ->
-      render(map, kid.n, kid.dx+dx, kid.dy+dy)
-    end)
+    map =
+      Enum.reduce(n.kids, map, fn kid, map ->
+        render(map, kid.n, kid.dx + dx, kid.dy + dy)
+      end)
+
     Enum.reduce(n.syms, map, fn sym, map ->
-      Map.put(map, {sym.x+dx, sym.y+dy}, sym.c)
+      Map.put(map, {sym.x + dx, sym.y + dy}, sym.c)
     end)
   end
 
@@ -226,14 +259,14 @@ defmodule Xpeg.Railroad do
     map = render(%{}, n, 0, 0)
     {xlo, xhi} = Enum.map(Map.keys(map), &elem(&1, 0)) |> Enum.min_max()
     {ylo, yhi} = Enum.map(Map.keys(map), &elem(&1, 1)) |> Enum.min_max()
-    for y <- ylo .. yhi do
-      for x <- xlo .. xhi do
+
+    for y <- ylo..yhi do
+      for x <- xlo..xhi do
         Map.get(map, {x, y}, ~c" ")
       end
       |> Enum.join("")
     end
     |> Enum.join("\n")
-    |> IO.puts
+    |> IO.puts()
   end
-
 end

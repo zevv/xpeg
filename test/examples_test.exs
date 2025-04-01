@@ -4,7 +4,7 @@ defmodule ExamplesTest do
   import Xpeg
 
   test "splitter" do
-    # Split a comma seperated list of key/value pairs
+    # Split a comma separated list of key/value pairs
 
     p =
       peg Dict do
@@ -18,8 +18,8 @@ defmodule ExamplesTest do
     assert(r.captures == [{"star", 2}, {"horse", 1}, {"grass", 4}])
   end
 
-  test "arithmatic-expressions" do
-    # This gramars parse simple arithmatic expressions into AST
+  test "arithmetic-expressions" do
+    # This gramars parse simple arithmetic expressions into AST
 
     p =
       peg Exp do
@@ -60,17 +60,19 @@ defmodule ExamplesTest do
         Int_part <- '0' | {'1'..'9'} * star({'0'..'9'})
         Fract_part <- "." * +{'0'..'9'}
         Exp_part <- {'e', 'E'} * opt({'+', '-'}) * +{'0'..'9'}
-        Number <- float(opt(Minus) * Int_part * opt(Fract_part) * opt(Exp_part)) 
+        Number <- float(opt(Minus) * Int_part * opt(Fract_part) * opt(Exp_part))
 
         # Objects are represented by an Elixir map
-        Obj_pair <- S * String * S * ":" * Value * fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
+        Obj_pair <-
+          S * String * S * ":" * Value * fn [v, k, obj | cs] -> [Map.put(obj, k, v) | cs] end
 
         Object <- '{' * fn cs -> [%{} | cs] end * (Obj_pair * star("," * Obj_pair) | S) * "}"
 
         # Arrays are represented by an Elixir list
         Array_elem <- Value * fn [v, a | cs] -> [[v | a] | cs] end
 
-        Array <- "[" * fn cs -> [[] | cs] end * (Array_elem * star("," * Array_elem) | S) * "]" *
+        Array <-
+          "[" * fn cs -> [[] | cs] end * (Array_elem * star("," * Array_elem) | S) * "]" *
             fn [a | cs] -> [Enum.reverse(a) | cs] end
 
         # All possible JSON values

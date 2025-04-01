@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        combination:
+          - { otp: "25", elixir: "1.14" }
+          - { otp: "26", elixir: "1.16" }
+          - { otp: "27", elixir: "1.18" }
+
+    env:
+      MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.combination.otp }}
+          elixir-version: ${{ matrix.combination.elixir }}
+
+      - name: Install dependencies
+        run: mix deps.get --only test
+
+      - name: Run tests
+        run: mix test

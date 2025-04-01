@@ -1,11 +1,10 @@
 defmodule Xpeg do
-
   @moduledoc """
 
   XPeg is a pure Elixir pattern matching library. It provides macros to compile
   patterns and grammars (PEGs) to Elixir function which will parse a string and
   collect selected parts of the input. PEGs are not unlike regular expressions,
-  but offer more power and flexibility, and have less ambiguities. (More about 
+  but offer more power and flexibility, and have less ambiguities. (More about
   PEGs on [Wikipedia](https://en.wikipedia.org/wiki/Parsing_expression_grammar))
 
   Some use cases where XPeg is useful are configuration or data file parsers,
@@ -26,6 +25,12 @@ defmodule Xpeg do
   """
 
   @doc false
+  def normalize_char(char) when is_list(char), do: char
+  def normalize_char(char) when is_binary(char), do: String.to_charlist(char)
+  def normalize_char({:<<>>, _, [char]}), do: String.to_charlist(char)
+  def normalize_char(char), do: char
+
+  @doc false
   defp collect(stack, acc, caps) do
     case {stack, acc} do
       {[{:open, s, si} | stack], _} ->
@@ -33,18 +38,25 @@ defmodule Xpeg do
 
       {[{:close, _sc, sic, type} | stack], [{:open, so, sio} | acc]} ->
         len = sic - sio
-         l = Enum.take(so, len)
+        l = Enum.take(so, len)
 
         # Convert capture to requested type
-        cap = case type do
-          :str -> to_string(l)
-          :int -> :erlang.list_to_integer(l)
-          :float -> try do
-              :erlang.list_to_float(l)
-          rescue
-            _ -> elem(Float.parse(to_string(l)), 0)
+        cap =
+          case type do
+            :str ->
+              to_string(l)
+
+            :int ->
+              :erlang.list_to_integer(l)
+
+            :float ->
+              try do
+                :erlang.list_to_float(l)
+              rescue
+                _ -> elem(Float.parse(to_string(l)), 0)
+              end
           end
-        end
+
         collect(stack, acc, [cap | caps])
 
       {_, acc} ->
@@ -58,6 +70,7 @@ defmodule Xpeg do
       cap_stack
       |> Enum.reverse()
       |> collect([], [])
+
     {cap_stack, captures ++ captures_prev}
   end
 
@@ -67,7 +80,8 @@ defmodule Xpeg do
       {:code, code} -> [:code, Macro.to_string(code)]
       inst -> Tuple.to_list(inst)
     end
-    |> Enum.map(&inspect/1) |> Enum.join(" ")
+    |> Enum.map(&inspect/1)
+    |> Enum.join(" ")
   end
 
   @doc false
@@ -76,7 +90,7 @@ defmodule Xpeg do
     s = Enum.take(s, 20) |> inspect |> String.pad_trailing(22, " ")
     IO.puts(" #{ip} | #{s} | #{cmd} ")
   end
-  
+
   @doc false
   def unalias(name) do
     case name do
@@ -87,10 +101,12 @@ defmodule Xpeg do
 
   @doc false
   defp make(start, rules, options) do
-    ast = %{start: unalias(start), rules: rules}
-    |> Xpeg.Linker.link_grammar(options)
-    |> Xpeg.Codegen.emit(options)
-    id = String.to_atom("#{inspect start}-#{inspect(make_ref())}")
+    ast =
+      %{start: unalias(start), rules: rules}
+      |> Xpeg.Linker.link_grammar(options)
+      |> Xpeg.Codegen.emit(options)
+
+    id = String.to_atom("#{inspect(start)}-#{inspect(make_ref())}")
     {id, ast}
   end
 
@@ -99,6 +115,7 @@ defmodule Xpeg do
   """
   defmacro peg(start, _rules = [{:do, v}]) do
     {id, ast} = make(start, Xpeg.Parser.parse(v), [])
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -116,14 +133,18 @@ defmodule Xpeg do
   - `:dump_graph` - if `true`, generate a graphical 'railroad' diagram
     of the grammar at compile time
   - `:userdata` - if `true`, elixir functions that are embedded in the grammar
-    take an additional accumulator argument and should return a tuple 
-    `{captures | acc}` - the resulting accumulator value is available as 
+    take an additional accumulator argument and should return a tuple
+    `{captures | acc}` - the resulting accumulator value is available as
     the `userdata` field in the return value of the `match()1 function
 
   """
   defmacro peg(start, options, [{:do, v}]) do
-    if options[:dump_graph] do Xpeg.Railroad.draw(v) end
+    if options[:dump_graph] do
+      Xpeg.Railroad.draw(v)
+    end
+
     {id, ast} = make(start, Xpeg.Parser.parse(v), options)
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -134,15 +155,17 @@ defmodule Xpeg do
   """
   defmacro patt(v) do
     # Convert string literals to charlists before parsing
-    v = Macro.prewalk(v, fn
-      {:<<>>, _meta, [string]} when is_binary(string) ->
-        string
+    v =
+      Macro.prewalk(v, fn
+        {:<<>>, _meta, [string]} when is_binary(string) ->
+          string
 
-      other ->
-        other
-    end)
-      
+        other ->
+          other
+      end)
+
     {id, ast} = make(:anon, %{anon: Xpeg.Parser.parse(v)}, [])
+
     quote do
       Module.create(unquote(id), unquote(ast), Macro.Env.location(__ENV__))
     end
@@ -157,11 +180,14 @@ defmodule Xpeg do
   - `userdata`: Returned userdata
   """
   def match(module, s, userdata \\ nil) do
-
     ctx = userdata
     module = elem(module, 1)
 
-    s = if is_binary(s) do to_charlist(s) else s end
+    s =
+      cond do
+        is_binary(s) -> to_charlist(s)
+        true -> s
+      end
 
     {t1, _} = :erlang.statistics(:runtime)
     {ctx, rest, si, result, cap_stack, captures} = module.parse(0, s, 0, ctx, [], [], [], [])
@@ -172,13 +198,11 @@ defmodule Xpeg do
       captures: captures,
       result: result,
       rest: rest,
-      time: (t2-t1) / 1000,
+      time: (t2 - t1) / 1000,
       match_len: si,
-      userdata: ctx,
+      userdata: ctx
     }
-
   end
-
 end
 
 # set ft=elixir
