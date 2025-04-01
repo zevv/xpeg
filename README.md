@@ -5,7 +5,7 @@
 
 
 More documentation will be added, for now please refer to the documentation of
-[Xpeg](https://github.com/zevv/npeg), a Nim implementation of a similar PEG
+[Npeg](https://github.com/zevv/npeg), a Nim implementation of a similar PEG
 parser.
 
 
